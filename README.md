@@ -1,5 +1,7 @@
 # personal-gen-ai
 
+You will need to install aws-cli and terraform >= 1.5.7
+
 1/ Edit the *terraform.tfvars* file to select your instance region and add your SSH key name
 
 2/ Enter the following commands to provision your personal Gen AI using open WebUI and Ollama
