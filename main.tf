@@ -129,8 +129,20 @@ resource "aws_instance" "gpu_instance" {
               sleep 5
               docker volume create ollama
               docker volume create open-webui
-              docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
-              EOF
+              # docker run -d -p 3000:8080 --gpus=all -v ollama:/root/.ollama -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:ollama
+              
+							# Create a docker network
+							docker network create ollama-net
+
+							# Start ollama runtime
+							docker run -d --gpus=all --network ollama-net -p 11434:11434 -v ollama:/root/.ollama --name ollama --restart always ollama/ollama:latest
+
+							# Pull the model
+							docker exec -it ollama ollama pull gpt-oss:20b
+
+							# Start open-webui with this runtime
+							docker run -d --network ollama-net -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --restart always -e OLLAMA_BASE_URL=http://ollama:11434 ghcr.io/open-webui/open-webui:main
+							EOF
 
   tags = {
     Name = var.instance_name
