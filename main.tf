@@ -139,7 +139,7 @@ resource "aws_instance" "gpu_instance" {
               # docker exec -it ollama ollama pull gpt-oss:20b
               # Start open-webui with this runtime
               docker run -d --network ollama-net -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --restart always -e OLLAMA_BASE_URL=http://ollama:11434 ghcr.io/open-webui/open-webui:main
-							EOF
+              EOF
 
   tags = {
     Name = var.instance_name
