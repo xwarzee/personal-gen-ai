@@ -92,7 +92,7 @@ data "aws_ami" "deep_learning_gpu" {
 
   filter {
     name   = "name"
-    values = ["Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04) 20250627"]
+    values = ["Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04) ????????"]
   }
 }
 
