@@ -9,9 +9,9 @@ You will need to install **aws-cli** and **terraform >= 1.5.7**
 > terraform plan -out plan.zip
 > terraform apply plan.zip
 ```
-=> a public IP address will be displayed: public_ip = WW.XX.YY.ZZ
+=> a public IP address will be displayed: ec2_public_ip = WW.XX.YY.ZZ
 
-3. Start to use your open WebUI with your browser at the following URL : http//WW.XX.YY.ZZ:3000
+3. Start to use your open WebUI with your browser at the following URL : https://ec2_public_ip
 4. To deprovision your instance, enter the following command:
 ```
 > terraform plan -destroy -out plan-destroy.zip
