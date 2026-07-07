@@ -28,7 +28,7 @@ TARGET="$1"
 ACTION="$2"
 
 case "$TARGET" in
-  aws|runpod|exoscale|vastai|ovhcloud) ;;
+  aws|runpod|exoscale|vastai|ovhcloud|lyceum) ;;
   *) echo "Cible inconnue: '$TARGET'" >&2; usage ;;
 esac
 
@@ -53,6 +53,14 @@ fi
 if [ "$TARGET" = "ovhcloud" ] && [ -z "${OS_AUTH_URL:-}" ]; then
   echo "ERREUR: identifiants OpenStack absents (source le fichier OpenStack RC : 'source openrc.sh')." >&2
   exit 1
+fi
+
+if [ "$TARGET" = "lyceum" ]; then
+  if [ -z "${LYCEUM_API_KEY:-}" ]; then
+    echo "ERREUR: LYCEUM_API_KEY n'est pas défini (export LYCEUM_API_KEY=lk_...)." >&2
+    exit 1
+  fi
+  export TF_VAR_api_key="$LYCEUM_API_KEY"
 fi
 
 cd "$STACK_DIR"

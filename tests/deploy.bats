@@ -6,7 +6,7 @@ setup() {
   export PATH="$BATS_TEST_DIRNAME/mocks/bin:$PATH"   # terraform mocké en tête de PATH
   MOCK_LOG="$(mktemp)"; export MOCK_LOG
   # Neutralise les clés d'API pour exercer les garde-fous
-  unset RUNPOD_API_KEY EXOSCALE_API_KEY EXOSCALE_API_SECRET VASTAI_API_KEY OS_AUTH_URL
+  unset RUNPOD_API_KEY EXOSCALE_API_KEY EXOSCALE_API_SECRET VASTAI_API_KEY OS_AUTH_URL LYCEUM_API_KEY
 }
 
 teardown() { rm -f "$MOCK_LOG"; }
@@ -44,6 +44,12 @@ teardown() { rm -f "$MOCK_LOG"; }
   run "$PROJECT_ROOT/deploy.sh" ovhcloud up
   [ "$status" -eq 1 ]
   [[ "$output" == *"OpenStack RC"* ]]
+}
+
+@test "lyceum sans LYCEUM_API_KEY -> exit 1" {
+  run "$PROJECT_ROOT/deploy.sh" lyceum up
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"LYCEUM_API_KEY"* ]]
 }
 
 @test "aws status -> routage vers 'terraform output' dans aws/" {

@@ -7,23 +7,24 @@ Déployez votre **Open WebUI + Ollama** personnel, **au choix** sur :
 - **Exoscale** (IaaS européen, souveraineté des données) — `providers/exoscale/`
 - **Vast.ai** (marketplace GPU le moins cher, accès par tunnel SSH) — `providers/vastai/`
 - **OVHcloud** (IaaS européen basé OpenStack) — `providers/ovhcloud/`
+- **Lyceum** (GPU cloud européen, piloté via API REST) — `providers/lyceum/`
 
 Chaque cible vit dans `providers/<cible>/` (une stack Terraform autonome). La logique métier commune est dans `common/`, les tests dans `tests/`.
 
-Les cinq cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <action>`.
+Les six cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <action>`.
 
 ## Comparatif des cibles
 
-| | AWS EC2 (`aws`) | RunPod (`runpod`) | Exoscale (`exoscale`) | Vast.ai (`vastai`) | OVHcloud (`ovhcloud`) |
-|---|---|---|---|---|---|
-| Modèle | VM GPU dédiée | Marketplace GPU (Community Cloud) | VM GPU dédiée (IaaS UE) | Marketplace GPU | VM GPU dédiée (IaaS UE, OpenStack) |
-| Localisation | Régions AWS | Mondiale | Zones UE (Suisse/DE/AT/BG) | Mondiale | Régions OVH (UE/AM/AP) |
-| Coût GPU | Élevé (quotas à demander) | Bas | Moyen (A40 -30 % depuis 06/2026) | Le plus bas | Moyen (L4/L40S/A100/H100) |
-| IaC | Terraform (`hashicorp/aws`) | Terraform (`decentralized-infrastructure/runpod`) | Terraform (`exoscale/exoscale`) | Terraform (`realnedsanders/vastai`) | Terraform (`terraform-provider-openstack/openstack`) |
-| Réseau | VPC + subnet + security group | Fourni par RunPod | Security group | Fourni par Vast.ai | Security group (Neutron) |
-| Accès web | Nginx HTTPS auto-signé | Proxy natif RunPod (TLS + auth) | Nginx HTTPS auto-signé | **Tunnel SSH** (pas d'IP publique exposée) | Nginx HTTPS auto-signé |
-| Docker / GPU | AMI avec drivers pré-installés | L'image **est** le pod | Drivers NVIDIA installés au boot | L'image **est** l'instance | Drivers NVIDIA installés au boot |
-| Persistance modèles | Volume Docker `ollama` | Volume monté sur `/root/.ollama` | Volume Docker `ollama` | Disque de l'instance | Volume Docker `ollama` |
+| | AWS EC2 (`aws`) | RunPod (`runpod`) | Exoscale (`exoscale`) | Vast.ai (`vastai`) | OVHcloud (`ovhcloud`) | Lyceum (`lyceum`) |
+|---|---|---|---|---|---|---|
+| Modèle | VM GPU dédiée | Marketplace GPU (Community Cloud) | VM GPU dédiée (IaaS UE) | Marketplace GPU | VM GPU dédiée (IaaS UE, OpenStack) | VM GPU (cloud UE, Berlin) |
+| Localisation | Régions AWS | Mondiale | Zones UE (Suisse/DE/AT/BG) | Mondiale | Régions OVH (UE/AM/AP) | UE |
+| Coût GPU | Élevé (quotas à demander) | Bas | Moyen (A40 -30 % depuis 06/2026) | Le plus bas | Moyen (L4/L40S/A100/H100) | Moyen (H100 dès 2 $/h) |
+| IaC | Terraform (`hashicorp/aws`) | Terraform (`decentralized-infrastructure/runpod`) | Terraform (`exoscale/exoscale`) | Terraform (`realnedsanders/vastai`) | Terraform (`terraform-provider-openstack/openstack`) | **API REST** via `Mastercard/restapi` (pas de provider natif) |
+| Réseau | VPC + subnet + security group | Fourni par RunPod | Security group | Fourni par Vast.ai | Security group (Neutron) | Fourni par Lyceum |
+| Accès web | Nginx HTTPS auto-signé | Proxy natif RunPod (TLS + auth) | Nginx HTTPS auto-signé | **Tunnel SSH** (pas d'IP publique exposée) | Nginx HTTPS auto-signé | **Tunnel SSH** |
+| Docker / GPU | AMI avec drivers pré-installés | L'image **est** le pod | Drivers NVIDIA installés au boot | L'image **est** l'instance | Drivers NVIDIA installés au boot | VM root SSH (provisioning post-boot par SSH) |
+| Persistance modèles | Volume Docker `ollama` | Volume monté sur `/root/.ollama` | Volume Docker `ollama` | Disque de l'instance | Volume Docker `ollama` | Disque de la VM |
 
 La logique commune est factorisée dans [`common/`](common/) :
 - [`common/bootstrap.sh`](common/bootstrap.sh) — lancement d'Open WebUI + pré-téléchargement du modèle Ollama (auto-adaptatif hôte/conteneur), réutilisé par **toutes** les cibles ;
@@ -37,6 +38,7 @@ La logique commune est factorisée dans [`common/`](common/) :
 - Cible **exoscale** : une clé API Exoscale (`EXOSCALE_API_KEY` / `EXOSCALE_API_SECRET`) **et un quota GPU validé** (validation manuelle du compte requise sur le portail Exoscale)
 - Cible **vastai** : une clé API Vast.ai (`VASTAI_API_KEY`) et une paire de clés SSH locale
 - Cible **ovhcloud** : les identifiants OpenStack sourcés (`source openrc.sh` — fichier « OpenStack RC » depuis l'espace client OVH) et une paire de clés SSH locale
+- Cible **lyceum** : une clé API Lyceum (`LYCEUM_API_KEY`, format `lk_...`) et une paire de clés SSH locale
 
 ## Utilisation
 
@@ -47,6 +49,7 @@ La logique commune est factorisée dans [`common/`](common/) :
 ./deploy.sh exoscale up
 ./deploy.sh vastai up
 ./deploy.sh ovhcloud up
+./deploy.sh lyceum up
 
 # Voir l'URL (ou la commande de tunnel) et les autres sorties
 ./deploy.sh <cible> status
@@ -101,6 +104,16 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 
 > OVH Public Cloud est basé sur OpenStack. Comme pour Exoscale, l'image Ubuntu n'embarque pas les drivers NVIDIA : ils sont installés au premier boot via `user_data`. Les flavors A100/H100/L4/L40S sont en région **GRA11** (V100 en GRA7/9/BHS5).
 
+### Cible Lyceum
+
+1. Générez une clé SSH si besoin (`ssh-keygen -t ed25519`).
+2. Exportez votre clé API : `export LYCEUM_API_KEY=lk_...`
+3. `cp providers/lyceum/terraform.tfvars.example providers/lyceum/terraform.tfvars` puis renseignez `hardware_profile` (profil GPU, cf. `GET /vms/availability`) et ajustez les specs.
+4. `./deploy.sh lyceum up` → crée la VM.
+5. **Provisionnez Open WebUI par SSH** (l'API ne gère pas de `user_data`) : la sortie `provision_hint` donne la commande. Puis `./deploy.sh lyceum status` affiche `ssh_tunnel` → ouvrez `http://localhost:3000`.
+
+> ⚠️ **Cible best-effort.** Lyceum n'a **pas de provider Terraform natif** : on pilote son [API REST](https://docs.lyceum.technology/) via le provider générique [`Mastercard/restapi`](https://registry.terraform.io/providers/Mastercard/restapi/latest). Le `terraform validate`/`test` ne valide que le HCL, **pas** la justesse des appels API. À **confirmer avant un `apply` réel** : le chemin exact du create (`/vms` vs `/vms/create`), la valeur `hardware_profile` GPU, et le fait que l'API create n'accepte pas de `user_data` (d'où le provisioning par SSH).
+
 ## Structure
 
 ```
@@ -110,12 +123,13 @@ personal-gen-ai/
 │   ├── runpod/             #   RunPod (runpod_pod)
 │   ├── exoscale/           #   Exoscale (compute_instance GPU + SG)
 │   ├── vastai/             #   Vast.ai (vastai_instance + tunnel SSH)
-│   └── ovhcloud/           #   OVHcloud (openstack_compute_instance_v2 + SG)
+│   ├── ovhcloud/           #   OVHcloud (openstack_compute_instance_v2 + SG)
+│   └── lyceum/             #   Lyceum (API REST via provider restapi + tunnel SSH)
 ├── common/                 # Logique métier partagée entre les stacks
 │   ├── bootstrap.sh        #   Lancement Open WebUI + Ollama
 │   └── nginx-https.sh      #   Reverse-proxy HTTPS auto-signé
 ├── tests/                  # Tests unitaires shell (bats) + mocks + fixtures
-├── deploy.sh               # Dispatcher ./deploy.sh <aws|runpod|exoscale|vastai|ovhcloud> <up|down|status>
+├── deploy.sh               # Dispatcher ./deploy.sh <aws|runpod|exoscale|vastai|ovhcloud|lyceum> <up|down|status>
 ├── Makefile                # Cibles de test (make test)
 └── README.md
 ```
@@ -127,7 +141,7 @@ Le projet est testé **sans provisioning réel** (aucun coût GPU, aucune clé A
 | Cible make | Couche | Outil |
 |---|---|---|
 | `fmt` | formatage | `terraform fmt -check` |
-| `validate` | schéma des 5 stacks | `terraform validate` |
+| `validate` | schéma des 6 stacks | `terraform validate` |
 | `lint` | scripts shell | `shellcheck` + `bash -n` |
 | `unit` | dispatcher & bootstrap | `bats` |
 | `tftest` | câblage des stacks (image, ports, outputs) | `terraform test` + `mock_provider` |
@@ -144,5 +158,6 @@ make unit          # tests bats
 ## Notes
 
 - Les providers RunPod ([`decentralized-infrastructure/runpod`](https://registry.terraform.io/providers/decentralized-infrastructure/runpod/latest)) et Vast.ai ([`realnedsanders/vastai`](https://registry.terraform.io/providers/realnedsanders/vastai/latest)) sont communautaires. En cas d'erreur au `terraform plan`, vérifiez la doc du registry.
+- **Lyceum** n'a pas de provider Terraform : la cible pilote l'API REST via `Mastercard/restapi` et est **best-effort** (voir l'avertissement de la section Lyceum). Les appels API ne sont pas couverts par `validate`/`test`.
 - Sur Exoscale, si `nvidia-smi` échoue au premier démarrage, un `reboot` de l'instance charge le module noyau NVIDIA.
 - Ne committez jamais un `terraform.tfstate` ni une clé API : c'est couvert par le [`.gitignore`](.gitignore).
