@@ -8,10 +8,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5 # pour utiliser Node 24, et plus Node 20
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v3 # Surveiller car utilise Node 20 => passage a Node 24 en Septembre 2026 sur Github
         with:
           terraform_version: 1.15.7
           terraform_wrapper: false   # laisse `terraform -chdir`/version -json intacts
