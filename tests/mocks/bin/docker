@@ -1,0 +1,14 @@
+#!/bin/sh
+# Stub de docker pour les tests bats : journalise l'appel, simule le minimum.
+# Shebang /bin/sh (absolu) : fonctionne même sous un PATH de test restreint.
+echo "docker: $*" >> "${MOCK_LOG:-/dev/null}"
+case "$1" in
+  ps)
+    # Aucun conteneur existant -> open-webui non trouvé
+    exit 0
+    ;;
+  *)
+    # volume create / run / exec ... ollama list|pull
+    exit 0
+    ;;
+esac
