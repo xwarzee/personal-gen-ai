@@ -1,0 +1,11 @@
+# Copier en terraform.tfvars et ajuster.
+# Les identifiants API se passent de préférence via l'environnement :
+#   export EXOSCALE_API_KEY=...  EXOSCALE_API_SECRET=...
+# (dans ce cas, laisser api_key/api_secret non définis ici).
+
+ssh_key_name  = "genAI"          # nom d'une clé SSH déjà présente dans le compte Exoscale
+zone          = "de-fra-1"       # Frankfurt ; cf. zones proposant le GPU choisi
+instance_type = "gpu3.small"     # NVIDIA A40 48 Go (voir aussi gpua30.small, gpua5000.medium)
+disk_size     = 100              # GiB (min 10) ; prévoir de la place pour les modèles
+ollama_model  = ""               # ex: "llama3.2" pour pré-télécharger un modèle au boot
+# nvidia_driver_pkg = "nvidia-driver-570"
