@@ -31,7 +31,7 @@ La logique commune est factorisée dans [`common/`](common/) :
 
 ## Prérequis
 
-- **terraform >= 1.5.7**
+- **terraform** : `>= 1.5.7` pour déployer une cible ; **`>= 1.7` pour la suite complète `make test`** (sinon la couche `tftest`, qui utilise `mock_provider`, est ignorée)
 - Cible **aws** : `aws-cli` installé et configuré (credentials)
 - Cible **runpod** : une clé API RunPod (`RUNPOD_API_KEY`)
 - Cible **exoscale** : une clé API Exoscale (`EXOSCALE_API_KEY` / `EXOSCALE_API_SECRET`) **et un quota GPU validé** (validation manuelle du compte requise sur le portail Exoscale)
@@ -122,12 +122,12 @@ personal-gen-ai/
 
 ## Tests
 
-Le projet est testé **sans provisioning réel** (aucun coût GPU, aucune clé API), via 4 couches lancées par `make test` et en CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) :
+Le projet est testé **sans provisioning réel** (aucun coût GPU, aucune clé API), via 6 couches lancées par `make test` et en CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) :
 
 | Cible make | Couche | Outil |
 |---|---|---|
 | `fmt` | formatage | `terraform fmt -check` |
-| `validate` | schéma des 4 stacks | `terraform validate` |
+| `validate` | schéma des 5 stacks | `terraform validate` |
 | `lint` | scripts shell | `shellcheck` + `bash -n` |
 | `unit` | dispatcher & bootstrap | `bats` |
 | `tftest` | câblage des stacks (image, ports, outputs) | `terraform test` + `mock_provider` |
