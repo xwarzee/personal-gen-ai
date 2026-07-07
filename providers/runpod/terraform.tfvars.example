@@ -1,0 +1,12 @@
+# Copier en terraform.tfvars et ajuster.
+# La clé API se passe de préférence via l'environnement :  export RUNPOD_API_KEY=...
+# (dans ce cas, laisser api_key non défini ici).
+
+pod_name          = "personal-gen-ai"
+cloud_type        = "COMMUNITY"            # le moins cher ; "SECURE" pour du datacenter dédié
+gpu_type_ids      = ["NVIDIA GeForce RTX 4090"]  # cf. console RunPod pour les identifiants exacts
+gpu_count         = 1
+container_disk_gb = 30
+volume_gb         = 100                    # persistance des modèles Ollama sur /root/.ollama
+web_port          = 8080
+ollama_model      = ""                     # ex: "llama3.2" pour pré-télécharger un modèle
