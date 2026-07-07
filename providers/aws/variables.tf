@@ -23,3 +23,9 @@ variable "instance_name" {
   type        = string
 }
 
+variable "ollama_model" {
+  description = "Modèle Ollama à pré-télécharger au démarrage (vide = aucun, récupérable via l'UI)"
+  type        = string
+  default     = ""
+}
+

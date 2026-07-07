@@ -6,6 +6,12 @@ provider "aws" {
   region = var.region
 }
 
+locals {
+  # Fragments partagés avec les autres cibles « vraie VM » (voir ../../common/)
+  bootstrap = file("${path.module}/../../common/bootstrap.sh")
+  nginx     = file("${path.module}/../../common/nginx-https.sh")
+}
+
 ########################################
 # Network - VPC & Public subnet 
 ########################################
@@ -14,7 +20,7 @@ resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags = { Name = "vpc-deep-learning" }
+  tags                 = { Name = "vpc-deep-learning" }
 }
 
 resource "aws_subnet" "public_a" {
@@ -22,7 +28,7 @@ resource "aws_subnet" "public_a" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.region}a"
   map_public_ip_on_launch = true
-  tags = { Name = "public-subnet-a" }
+  tags                    = { Name = "public-subnet-a" }
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -80,6 +86,7 @@ resource "aws_security_group" "allow_ssh_https" {
   }
 
   egress {
+    description = "All outbound (pull Docker images and models)"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -109,15 +116,21 @@ data "aws_ami" "deep_learning_gpu" {
 
 resource "aws_instance" "gpu_instance" {
   ami                         = data.aws_ami.deep_learning_gpu.id
-  instance_type                = var.instance_type
-  key_name                     = var.key_name
-  subnet_id                    = aws_subnet.public_a.id
-  vpc_security_group_ids       = [aws_security_group.allow_ssh_https.id]
-  associate_public_ip_address  = true
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public_a.id
+  vpc_security_group_ids      = [aws_security_group.allow_ssh_https.id]
+  associate_public_ip_address = true
 
   root_block_device {
     volume_size = var.volume_size
     volume_type = "gp3"
+  }
+
+  # IMDSv2 obligatoire (durcissement — CKV_AWS_79)
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
   }
 
   user_data = <<-EOF
@@ -144,58 +157,12 @@ resource "aws_instance" "gpu_instance" {
               # --- Ajouter utilisateur ubuntu ---
               usermod -aG docker ubuntu
 
-              # --- Créer volumes Docker ---
-              docker volume create ollama
-              docker volume create open-webui
+              # --- Bootstrap partagé : volumes + conteneur Open WebUI + pull modèle ---
+              export OLLAMA_MODEL="${var.ollama_model}"
+              ${local.bootstrap}
 
-              # --- Lancer le container Open WebUI ---
-              docker run -d -p 3000:8080 --gpus=all \
-                -v ollama:/root/.ollama \
-                -v open-webui:/app/backend/data \
-                --name open-webui \
-                --restart always \
-                ghcr.io/open-webui/open-webui:ollama
-
-              # --- Installer Nginx ---
-              apt-get install -y nginx openssl
-
-              # --- Créer certificat auto-signé ---
-              mkdir -p /etc/nginx/ssl
-              openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                -keyout /etc/nginx/ssl/selfsigned.key \
-                -out /etc/nginx/ssl/selfsigned.crt \
-                -subj "/CN=openwebui.local"
-
-              # --- Configuration Nginx pour HTTPS proxy ---
-              cat << 'EOF_NGINX' > /etc/nginx/sites-available/openwebui
-              server {
-                  listen 443 ssl;
-                  server_name _;
-
-                  ssl_certificate     /etc/nginx/ssl/selfsigned.crt;
-                  ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
-
-                  location / {
-                      proxy_pass http://127.0.0.1:3000;
-                      proxy_http_version 1.1;
-                      proxy_set_header Upgrade $http_upgrade;
-                      proxy_set_header Connection 'upgrade';
-                      proxy_set_header Host $host;
-                      proxy_cache_bypass $http_upgrade;
-                  }
-              }
-
-              server {
-                  listen 80;
-                  server_name _;
-                  return 301 https://$host$request_uri;
-              }
-              EOF_NGINX
-
-              rm -f /etc/nginx/sites-enabled/default
-              ln -s /etc/nginx/sites-available/openwebui /etc/nginx/sites-enabled/openwebui
-
-              systemctl restart nginx
+              # --- Nginx HTTPS auto-signé (fragment partagé) ---
+              ${local.nginx}
               EOF
 
   tags = { Name = var.instance_name }
