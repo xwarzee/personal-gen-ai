@@ -1,0 +1,25 @@
+# Terraform state (peut contenir des secrets) — ne jamais committer
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Répertoires de travail & plans Terraform
+**/.terraform/
+*.tfplan
+plan.zip
+plan-destroy.zip
+
+# Fichiers de variables potentiellement sensibles (clés API, etc.)
+# Le versionnage des tfvars AWS existants reste possible ; on ignore les .env
+.env
+*.auto.tfvars
+providers/runpod/terraform.tfvars
+providers/exoscale/terraform.tfvars
+providers/vastai/terraform.tfvars
+
+# Artefacts de test
+tests/**/*.log
+**/*.tftest.log
+
+# Divers
+.DS_Store

@@ -1,0 +1,12 @@
+# Copier en terraform.tfvars et ajuster.
+# La clé API se passe de préférence via l'environnement :  export VASTAI_API_KEY=...
+# (dans ce cas, laisser api_key non défini ici).
+
+gpu_name            = "RTX_4090"              # cf. Vast.ai pour les identifiants de GPU
+num_gpus            = 1
+gpu_ram_gb_min      = 24
+max_price           = 0.50                    # USD/h max
+disk_gb             = 100                      # place pour les modèles Ollama
+ssh_public_key_path = "~/.ssh/id_ed25519.pub" # clé publique locale (pour le tunnel SSH)
+ollama_model        = ""                       # ex: "llama3.2" pour pré-télécharger un modèle
+label               = "personal-gen-ai"

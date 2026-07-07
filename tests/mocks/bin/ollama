@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stub d'ollama pour les tests bats : journalise l'appel et réussit.
+# Shebang /bin/sh (absolu) : fonctionne même sous un PATH de test restreint.
+echo "ollama: $*" >> "${MOCK_LOG:-/dev/null}"
+# `list` réussit immédiatement pour que la boucle d'attente sorte sans sleep.
+exit 0

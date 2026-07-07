@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stub de terraform pour les tests bats : journalise l'appel et réussit.
+# Shebang /bin/sh (absolu) : fonctionne même sous un PATH de test restreint.
+echo "terraform: $* (cwd=$(basename "$PWD"))" >> "${MOCK_LOG:-/dev/null}"
+exit 0

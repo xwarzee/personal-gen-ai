@@ -1,0 +1,31 @@
+# Configuration checkov — scan sécurité IaC.
+#
+# Baseline triée après premier run. IMDSv2 (CKV_AWS_79) est corrigé dans le
+# code ; les checks ci-dessous sont des choix ASSUMÉS pour un usage personnel
+# mono-utilisateur. Le scan est bloquant (soft-fail: false).
+framework:
+  - terraform
+
+directory:
+  - .
+
+# Ne pas scanner les répertoires de travail Terraform.
+skip-path:
+  - ".*/\\.terraform/.*"
+
+# Choix assumés (usage perso, instance jetable joignable directement) :
+skip-check:
+  - CKV_AWS_24    # ingress SSH (22) ouvert 0.0.0.0/0 — assumé (accès perso)
+  - CKV_AWS_260   # ingress HTTP (80) ouvert 0.0.0.0/0 — redirige vers HTTPS
+  - CKV_AWS_130   # subnet assigne une IP publique — nécessaire pour joindre l'instance
+  - CKV_AWS_88    # instance avec IP publique — idem
+  - CKV_AWS_382   # egress 0.0.0.0/0 — nécessaire (pull images Docker / modèles)
+  - CKV_AWS_126   # detailed monitoring — coût, non pertinent ici
+  - CKV_AWS_135   # EBS optimized — déjà par défaut sur g4dn, non-sécurité
+  - CKV2_AWS_12   # default SG du VPC — un SG dédié restrictif est déjà utilisé
+  - CKV2_AWS_41   # rôle IAM sur l'EC2 — aucun appel API AWS depuis l'instance
+  - CKV2_AWS_11   # VPC flow logs — audit/coût hors scope perso
+
+compact: true
+quiet: true
+soft-fail: false
