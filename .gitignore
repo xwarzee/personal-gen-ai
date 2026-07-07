@@ -17,6 +17,7 @@ providers/runpod/terraform.tfvars
 providers/exoscale/terraform.tfvars
 providers/vastai/terraform.tfvars
 providers/ovhcloud/terraform.tfvars
+providers/lyceum/terraform.tfvars
 
 # Artefacts de test
 tests/**/*.log

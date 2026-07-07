@@ -1,0 +1,15 @@
+# Copier en terraform.tfvars et ajuster.
+# La clé API se passe de préférence via l'environnement :
+#   export TF_VAR_api_key="lk_..."      (ou un JWT)
+
+# À CONFIRMER via GET /vms/availability (valeur d'exemple fictive) :
+hardware_profile    = "gpu-h100-1"
+
+gpu_count           = 1
+cpu                 = 8
+memory_gb           = 32
+disk_gb             = 100
+name                = "personal-gen-ai"
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+
+# vms_path          = "/vms"   # décommenter et passer à "/vms/create" si l'API l'exige
