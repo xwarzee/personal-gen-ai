@@ -6,7 +6,7 @@ setup() {
   export PATH="$BATS_TEST_DIRNAME/mocks/bin:$PATH"   # terraform mocké en tête de PATH
   MOCK_LOG="$(mktemp)"; export MOCK_LOG
   # Neutralise les clés d'API pour exercer les garde-fous
-  unset RUNPOD_API_KEY EXOSCALE_API_KEY EXOSCALE_API_SECRET VASTAI_API_KEY
+  unset RUNPOD_API_KEY EXOSCALE_API_KEY EXOSCALE_API_SECRET VASTAI_API_KEY OS_AUTH_URL
 }
 
 teardown() { rm -f "$MOCK_LOG"; }
@@ -38,6 +38,12 @@ teardown() { rm -f "$MOCK_LOG"; }
   run "$PROJECT_ROOT/deploy.sh" vastai up
   [ "$status" -eq 1 ]
   [[ "$output" == *"VASTAI_API_KEY"* ]]
+}
+
+@test "ovhcloud sans identifiants OpenStack -> exit 1" {
+  run "$PROJECT_ROOT/deploy.sh" ovhcloud up
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"OpenStack RC"* ]]
 }
 
 @test "aws status -> routage vers 'terraform output' dans aws/" {

@@ -10,7 +10,7 @@
 #   make sec      scan sécurité IaC (checkov)
 ########################################
 
-STACKS  := aws runpod exoscale vastai
+STACKS  := aws runpod exoscale vastai ovhcloud
 STACKDIR := providers
 SCRIPTS := deploy.sh common/bootstrap.sh common/nginx-https.sh
 

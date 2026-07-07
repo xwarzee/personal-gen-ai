@@ -1,0 +1,10 @@
+# Copier en terraform.tfvars et ajuster.
+# L'authentification OpenStack se fait via les variables d'environnement OS_*
+# (fichier "OpenStack RC" / application credentials téléchargé depuis l'espace
+# client OVH), à sourcer avant `terraform` :  source openrc.sh
+
+region              = "GRA11"                 # A100/H100/L4/L40S ; V100 en GRA7/9/BHS5
+flavor_name         = "l4-90"                 # cf. flavors GPU OVH (l40s-90, a100-180, t2-45…)
+image_name          = "Ubuntu 24.04"
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"
+ollama_model        = ""                       # ex: "llama3.2" pour pré-télécharger un modèle

@@ -6,27 +6,28 @@ Déployez votre **Open WebUI + Ollama** personnel, **au choix** sur :
 - **RunPod** (marketplace GPU bon marché, 100 % Terraform) — `providers/runpod/`
 - **Exoscale** (IaaS européen, souveraineté des données) — `providers/exoscale/`
 - **Vast.ai** (marketplace GPU le moins cher, accès par tunnel SSH) — `providers/vastai/`
+- **OVHcloud** (IaaS européen basé OpenStack) — `providers/ovhcloud/`
 
 Chaque cible vit dans `providers/<cible>/` (une stack Terraform autonome). La logique métier commune est dans `common/`, les tests dans `tests/`.
 
-Les quatre cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <action>`.
+Les cinq cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <action>`.
 
 ## Comparatif des cibles
 
-| | AWS EC2 (`aws`) | RunPod (`runpod`) | Exoscale (`exoscale`) | Vast.ai (`vastai`) |
-|---|---|---|---|---|
-| Modèle | VM GPU dédiée | Marketplace GPU (Community Cloud) | VM GPU dédiée (IaaS UE) | Marketplace GPU |
-| Localisation | Régions AWS | Mondiale | Zones UE (Suisse/DE/AT/BG) | Mondiale |
-| Coût GPU | Élevé (quotas à demander) | Bas | Moyen (A40 -30 % depuis 06/2026) | Le plus bas |
-| IaC | Terraform (`hashicorp/aws`) | Terraform (`decentralized-infrastructure/runpod`) | Terraform (`exoscale/exoscale`) | Terraform (`realnedsanders/vastai`) |
-| Réseau | VPC + subnet + security group | Fourni par RunPod | Security group | Fourni par Vast.ai |
-| Accès web | Nginx HTTPS auto-signé | Proxy natif RunPod (TLS + auth) | Nginx HTTPS auto-signé | **Tunnel SSH** (pas d'IP publique exposée) |
-| Docker / GPU | AMI avec drivers pré-installés | L'image **est** le pod | Drivers NVIDIA installés au boot | L'image **est** l'instance |
-| Persistance modèles | Volume Docker `ollama` | Volume monté sur `/root/.ollama` | Volume Docker `ollama` | Disque de l'instance |
+| | AWS EC2 (`aws`) | RunPod (`runpod`) | Exoscale (`exoscale`) | Vast.ai (`vastai`) | OVHcloud (`ovhcloud`) |
+|---|---|---|---|---|---|
+| Modèle | VM GPU dédiée | Marketplace GPU (Community Cloud) | VM GPU dédiée (IaaS UE) | Marketplace GPU | VM GPU dédiée (IaaS UE, OpenStack) |
+| Localisation | Régions AWS | Mondiale | Zones UE (Suisse/DE/AT/BG) | Mondiale | Régions OVH (UE/AM/AP) |
+| Coût GPU | Élevé (quotas à demander) | Bas | Moyen (A40 -30 % depuis 06/2026) | Le plus bas | Moyen (L4/L40S/A100/H100) |
+| IaC | Terraform (`hashicorp/aws`) | Terraform (`decentralized-infrastructure/runpod`) | Terraform (`exoscale/exoscale`) | Terraform (`realnedsanders/vastai`) | Terraform (`terraform-provider-openstack/openstack`) |
+| Réseau | VPC + subnet + security group | Fourni par RunPod | Security group | Fourni par Vast.ai | Security group (Neutron) |
+| Accès web | Nginx HTTPS auto-signé | Proxy natif RunPod (TLS + auth) | Nginx HTTPS auto-signé | **Tunnel SSH** (pas d'IP publique exposée) | Nginx HTTPS auto-signé |
+| Docker / GPU | AMI avec drivers pré-installés | L'image **est** le pod | Drivers NVIDIA installés au boot | L'image **est** l'instance | Drivers NVIDIA installés au boot |
+| Persistance modèles | Volume Docker `ollama` | Volume monté sur `/root/.ollama` | Volume Docker `ollama` | Disque de l'instance | Volume Docker `ollama` |
 
 La logique commune est factorisée dans [`common/`](common/) :
 - [`common/bootstrap.sh`](common/bootstrap.sh) — lancement d'Open WebUI + pré-téléchargement du modèle Ollama (auto-adaptatif hôte/conteneur), réutilisé par **toutes** les cibles ;
-- [`common/nginx-https.sh`](common/nginx-https.sh) — reverse-proxy HTTPS auto-signé, réutilisé par les cibles « vraie VM » (AWS, Exoscale).
+- [`common/nginx-https.sh`](common/nginx-https.sh) — reverse-proxy HTTPS auto-signé, réutilisé par les cibles « vraie VM » (AWS, Exoscale, OVHcloud).
 
 ## Prérequis
 
@@ -35,6 +36,7 @@ La logique commune est factorisée dans [`common/`](common/) :
 - Cible **runpod** : une clé API RunPod (`RUNPOD_API_KEY`)
 - Cible **exoscale** : une clé API Exoscale (`EXOSCALE_API_KEY` / `EXOSCALE_API_SECRET`) **et un quota GPU validé** (validation manuelle du compte requise sur le portail Exoscale)
 - Cible **vastai** : une clé API Vast.ai (`VASTAI_API_KEY`) et une paire de clés SSH locale
+- Cible **ovhcloud** : les identifiants OpenStack sourcés (`source openrc.sh` — fichier « OpenStack RC » depuis l'espace client OVH) et une paire de clés SSH locale
 
 ## Utilisation
 
@@ -44,6 +46,7 @@ La logique commune est factorisée dans [`common/`](common/) :
 ./deploy.sh runpod up
 ./deploy.sh exoscale up
 ./deploy.sh vastai up
+./deploy.sh ovhcloud up
 
 # Voir l'URL (ou la commande de tunnel) et les autres sorties
 ./deploy.sh <cible> status
@@ -89,6 +92,15 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 
 > Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès à Open WebUI passe par le **tunnel SSH** (`ssh -L 3000:localhost:8080 …`). Les modèles sont pré-téléchargés via `ollama_model` ou tirés depuis l'UI.
 
+### Cible OVHcloud
+
+1. Téléchargez le fichier **OpenStack RC** (application credentials) depuis l'espace client OVH, puis sourcez-le : `source openrc.sh`.
+2. `cp providers/ovhcloud/terraform.tfvars.example providers/ovhcloud/terraform.tfvars` puis ajustez (`region`, `flavor_name`, `ssh_public_key_path`, `ollama_model`…).
+3. `./deploy.sh ovhcloud up`
+4. Ouvrez l'URL `https://<public_ip>` (certificat auto-signé).
+
+> OVH Public Cloud est basé sur OpenStack. Comme pour Exoscale, l'image Ubuntu n'embarque pas les drivers NVIDIA : ils sont installés au premier boot via `user_data`. Les flavors A100/H100/L4/L40S sont en région **GRA11** (V100 en GRA7/9/BHS5).
+
 ## Structure
 
 ```
@@ -97,12 +109,13 @@ personal-gen-ai/
 │   ├── aws/                #   AWS (VPC, EC2 GPU, Nginx HTTPS)
 │   ├── runpod/             #   RunPod (runpod_pod)
 │   ├── exoscale/           #   Exoscale (compute_instance GPU + SG)
-│   └── vastai/             #   Vast.ai (vastai_instance + tunnel SSH)
+│   ├── vastai/             #   Vast.ai (vastai_instance + tunnel SSH)
+│   └── ovhcloud/           #   OVHcloud (openstack_compute_instance_v2 + SG)
 ├── common/                 # Logique métier partagée entre les stacks
 │   ├── bootstrap.sh        #   Lancement Open WebUI + Ollama
 │   └── nginx-https.sh      #   Reverse-proxy HTTPS auto-signé
 ├── tests/                  # Tests unitaires shell (bats) + mocks + fixtures
-├── deploy.sh               # Dispatcher ./deploy.sh <aws|runpod|exoscale|vastai> <up|down|status>
+├── deploy.sh               # Dispatcher ./deploy.sh <aws|runpod|exoscale|vastai|ovhcloud> <up|down|status>
 ├── Makefile                # Cibles de test (make test)
 └── README.md
 ```

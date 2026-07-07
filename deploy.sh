@@ -28,7 +28,7 @@ TARGET="$1"
 ACTION="$2"
 
 case "$TARGET" in
-  aws|runpod|exoscale|vastai) ;;
+  aws|runpod|exoscale|vastai|ovhcloud) ;;
   *) echo "Cible inconnue: '$TARGET'" >&2; usage ;;
 esac
 
@@ -47,6 +47,11 @@ fi
 
 if [ "$TARGET" = "vastai" ] && [ -z "${VASTAI_API_KEY:-}" ]; then
   echo "ERREUR: VASTAI_API_KEY n'est pas défini (export VASTAI_API_KEY=...)." >&2
+  exit 1
+fi
+
+if [ "$TARGET" = "ovhcloud" ] && [ -z "${OS_AUTH_URL:-}" ]; then
+  echo "ERREUR: identifiants OpenStack absents (source le fichier OpenStack RC : 'source openrc.sh')." >&2
   exit 1
 fi
 
