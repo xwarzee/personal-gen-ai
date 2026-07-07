@@ -25,7 +25,7 @@ jobs:
       - name: Static — terraform fmt
         run: make fmt
 
-      - name: Static — terraform validate (4 stacks)
+      - name: Static — terraform validate (5 stacks)
         run: make validate
 
       - name: Static — shellcheck + bash -n

@@ -3,7 +3,7 @@
 #
 #   make test     lance toutes les couches
 #   make fmt      vérifie le formatage Terraform
-#   make validate terraform validate sur les 4 stacks
+#   make validate terraform validate sur les 5 stacks
 #   make lint     shellcheck + bash -n sur les scripts
 #   make unit     tests bats (dispatcher + bootstrap)
 #   make tftest   terraform test mocké (requiert Terraform >= 1.7)
