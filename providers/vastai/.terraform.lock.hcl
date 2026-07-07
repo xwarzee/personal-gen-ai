@@ -1,0 +1,23 @@
+# This file is maintained automatically by "terraform init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/realnedsanders/vastai" {
+  version = "0.3.1"
+  hashes = [
+    "h1:Zb6CwuERVN4Sxl0ls9COtYn6Df38dpXT0pVHsCOqNQ0=",
+    "zh:10dc8ca1697b7d0dec339d7e59feb2b08e986011fd2e757f103735736f5628f8",
+    "zh:2c8712aa1b608048ea79881e90322f5341fad05925dd16a17fef76a677089db8",
+    "zh:4ee8aabaf8cd0c6b4dd0220050f8406712d98115b7998b9cbc47511171a88457",
+    "zh:5be8bf248095c8d831343045b2b4f4bae77a51031e4faa390fe0518b60f6a446",
+    "zh:739e565f2245a18bc8fef1cad6359375884fa8cdcbc372cd7e535df1e5a77b2a",
+    "zh:890df766e9b839623b1f0437355032a3c006226a6c200cd911e15ee1a9014e9f",
+    "zh:a2529817b27a43630e6d4adb25f2159e58ce897b77e8dad64c637b7d340c2fc9",
+    "zh:a7f390664546b798375131f9eb2e2b409bd52305d8bba3bcb3dfbaad7549281d",
+    "zh:b54b8956d902b32c2f1a56d2c9ff17a1a4d419cdfec8a19745b58be278b9fa83",
+    "zh:c510aaca1a4326889f50b44e755266b6d694688fcf298baacacd7c2545bff8c9",
+    "zh:e28737025302d9ea525b16267384c3faa20fda86b3572c008edb58ebc3420f04",
+    "zh:e902e9b5df8092fde2d38c54a7e743f566a716470ae518f011b889f6fa971457",
+    "zh:ea2035371d11f6dbc384f7ac9777a2e1977759f1f57f3ed800037cf9fa9eb4ea",
+    "zh:fa455f3195253837e028ebdc00a8ada08ac71612310a271bc62a1813ff6691ae",
+  ]
+}
