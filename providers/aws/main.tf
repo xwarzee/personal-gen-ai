@@ -105,18 +105,18 @@ resource "aws_security_group" "allow_ssh_https" {
 
 resource "aws_ebs_volume" "ollama" {
   availability_zone = "${var.region}a"
-  size             = var.ollama_volume_size
-  type             = "gp3"
-  encrypted        = true
-  tags             = { Name = "${var.instance_name}-ollama" }
+  size              = var.ollama_volume_size
+  type              = "gp3"
+  encrypted         = true
+  tags              = { Name = "${var.instance_name}-ollama" }
 }
 
 resource "aws_ebs_volume" "openwebui" {
   availability_zone = "${var.region}a"
-  size             = var.openwebui_volume_size
-  type             = "gp3"
-  encrypted        = true
-  tags             = { Name = "${var.instance_name}-openwebui" }
+  size              = var.openwebui_volume_size
+  type              = "gp3"
+  encrypted         = true
+  tags              = { Name = "${var.instance_name}-openwebui" }
 }
 
 resource "aws_volume_attachment" "ollama" {

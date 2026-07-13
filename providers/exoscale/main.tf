@@ -146,13 +146,13 @@ data "exoscale_template" "ubuntu" {
 }
 
 resource "exoscale_compute_instance" "gpu" {
-  zone               = var.zone
-  name               = var.instance_name
-  template_id        = coalesce(var.template_id, data.exoscale_template.ubuntu.id)
-  type               = var.instance_type
-  disk_size          = var.disk_size
-  ssh_keys           = [var.ssh_key_name]
+  zone                     = var.zone
+  name                     = var.instance_name
+  template_id              = coalesce(var.template_id, data.exoscale_template.ubuntu.id)
+  type                     = var.instance_type
+  disk_size                = var.disk_size
+  ssh_keys                 = [var.ssh_key_name]
   block_storage_volume_ids = [exoscale_block_storage_volume.ollama.id, exoscale_block_storage_volume.openwebui.id]
-  security_group_ids = [exoscale_security_group.ai.id]
-  user_data          = local.user_data
+  security_group_ids       = [exoscale_security_group.ai.id]
+  user_data                = local.user_data
 }
