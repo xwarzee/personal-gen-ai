@@ -45,6 +45,37 @@ locals {
     modprobe nvidia || true
     systemctl restart docker
 
+    # --- Montage des volumes persistants ---
+    # Attendre que les volumes soient disponibles
+    for vol in vdb vdc; do
+      for i in $(seq 1 30); do
+        if lsblk /dev/$vol >/dev/null 2>&1; then break; fi
+        sleep 2
+      done
+    done
+
+    # Formater et monter le volume Ollama
+    if ! blkid /dev/vdb >/dev/null 2>&1; then
+      mkfs.ext4 /dev/vdb
+    fi
+    mkdir -p /mnt/ollama
+    mount /dev/vdb /mnt/ollama
+    chown -R root:root /mnt/ollama
+    ln -sf /mnt/ollama /root/.ollama
+
+    # Formater et monter le volume Open WebUI
+    if ! blkid /dev/vdc >/dev/null 2>&1; then
+      mkfs.ext4 /dev/vdc
+    fi
+    mkdir -p /mnt/openwebui
+    mount /dev/vdc /mnt/openwebui
+    chown -R root:root /mnt/openwebui
+    ln -sf /mnt/openwebui /app/backend/data
+
+    # Ajouter au fstab
+    echo "/dev/vdb /mnt/ollama ext4 defaults,nofail 0 2" >> /etc/fstab
+    echo "/dev/vdc /mnt/openwebui ext4 defaults,nofail 0 2" >> /etc/fstab
+
     # --- Bootstrap partagé : conteneur Open WebUI (--gpus all) + pull modèle ---
     export OLLAMA_MODEL="${var.ollama_model}"
     ${local.bootstrap}
@@ -89,6 +120,22 @@ resource "exoscale_security_group_rule" "https" {
   end_port          = 443
 }
 
+
+########################################
+# Persistent Block Storage Volumes
+########################################
+
+resource "exoscale_block_storage_volume" "ollama" {
+  zone = var.zone
+  name = "${var.instance_name}-ollama"
+  size = var.ollama_volume_size
+}
+
+resource "exoscale_block_storage_volume" "openwebui" {
+  zone = var.zone
+  name = "${var.instance_name}-openwebui"
+  size = var.openwebui_volume_size
+}
 ########################################
 # Template Ubuntu + instance GPU
 ########################################
@@ -105,6 +152,7 @@ resource "exoscale_compute_instance" "gpu" {
   type               = var.instance_type
   disk_size          = var.disk_size
   ssh_keys           = [var.ssh_key_name]
+  block_storage_volume_ids = [exoscale_block_storage_volume.ollama.id, exoscale_block_storage_volume.openwebui.id]
   security_group_ids = [exoscale_security_group.ai.id]
   user_data          = local.user_data
 }
