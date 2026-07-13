@@ -97,7 +97,39 @@ resource "aws_security_group" "allow_ssh_https" {
 }
 
 ########################################
-# AMI Deep Learning GPU
+
+
+########################################
+# Persistent Volumes for Ollama models and Open WebUI data
+########################################
+
+resource "aws_ebs_volume" "ollama" {
+  availability_zone = "${var.region}a"
+  size             = var.ollama_volume_size
+  type             = "gp3"
+  encrypted        = true
+  tags             = { Name = "${var.instance_name}-ollama" }
+}
+
+resource "aws_ebs_volume" "openwebui" {
+  availability_zone = "${var.region}a"
+  size             = var.openwebui_volume_size
+  type             = "gp3"
+  encrypted        = true
+  tags             = { Name = "${var.instance_name}-openwebui" }
+}
+
+resource "aws_volume_attachment" "ollama" {
+  device_name = "/dev/sdh"
+  volume_id   = aws_ebs_volume.ollama.id
+  instance_id = aws_instance.gpu_instance.id
+}
+
+resource "aws_volume_attachment" "openwebui" {
+  device_name = "/dev/sdi"
+  volume_id   = aws_ebs_volume.openwebui.id
+  instance_id = aws_instance.gpu_instance.id
+}
 ########################################
 
 data "aws_ami" "deep_learning_gpu" {
@@ -156,6 +188,36 @@ resource "aws_instance" "gpu_instance" {
 
               # --- Ajouter utilisateur ubuntu ---
               usermod -aG docker ubuntu
+              # --- Montage des volumes persistants ---
+              # Attendre que les volumes soient disponibles
+              for vol in xvdh xvdi; do
+                for i in $(seq 1 30); do
+                  if lsblk /dev/$vol >/dev/null 2>&1; then break; fi
+                  sleep 2
+                done
+              done
+
+              # Formater et monter le volume Ollama
+              if ! blkid /dev/xvdh >/dev/null 2>&1; then
+                mkfs.ext4 /dev/xvdh
+              fi
+              mkdir -p /mnt/ollama
+              mount /dev/xvdh /mnt/ollama
+              chown -R ubuntu:ubuntu /mnt/ollama
+              ln -sf /mnt/ollama /root/.ollama
+
+              # Formater et monter le volume Open WebUI
+              if ! blkid /dev/xvdi >/dev/null 2>&1; then
+                mkfs.ext4 /dev/xvdi
+              fi
+              mkdir -p /mnt/openwebui
+              mount /dev/xvdi /mnt/openwebui
+              chown -R ubuntu:ubuntu /mnt/openwebui
+              ln -sf /mnt/openwebui /app/backend/data
+
+              # Ajouter au fstab
+              echo "/dev/xvdh /mnt/ollama ext4 defaults,nofail 0 2" >> /etc/fstab
+              echo "/dev/xvdi /mnt/openwebui ext4 defaults,nofail 0 2" >> /etc/fstab
 
               # --- Bootstrap partagé : volumes + conteneur Open WebUI + pull modèle ---
               export OLLAMA_MODEL="${var.ollama_model}"
