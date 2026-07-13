@@ -24,7 +24,7 @@ Les six cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <a
 | Réseau | VPC + subnet + security group | Fourni par RunPod | Security group | Fourni par Vast.ai | Security group (Neutron) | Fourni par Lyceum |
 | Accès web | Nginx HTTPS auto-signé | Proxy natif RunPod (TLS + auth) | Nginx HTTPS auto-signé | **Tunnel SSH** (pas d'IP publique exposée) | Nginx HTTPS auto-signé | **Tunnel SSH** |
 | Docker / GPU | AMI avec drivers pré-installés | L'image **est** le pod | Drivers NVIDIA installés au boot | L'image **est** l'instance | Drivers NVIDIA installés au boot | VM root SSH (provisioning post-boot par SSH) |
-| Persistance modèles | Volume Docker `ollama` | Volume monté sur `/root/.ollama` | Volume Docker `ollama` | Disque de l'instance | Volume Docker `ollama` | Disque de la VM |
+| Persistance données | Volumes EBS détachables | Volume RunPod `/workspace` | Volumes Block Storage détachables | Disque de l'instance | Volumes Cinder détachables | Disque de la VM |
 
 La logique commune est factorisée dans [`common/`](common/) :
 - [`common/bootstrap.sh`](common/bootstrap.sh) — lancement d'Open WebUI + pré-téléchargement du modèle Ollama (auto-adaptatif hôte/conteneur), réutilisé par **toutes** les cibles ;
@@ -54,11 +54,27 @@ La logique commune est factorisée dans [`common/`](common/) :
 # Voir l'URL (ou la commande de tunnel) et les autres sorties
 ./deploy.sh <cible> status
 
-# Détruire
+# Arrêter/détruire le compute coûteux en conservant les données quand la cible le permet
 ./deploy.sh <cible> down
+
+# Détruire toute la stack, données incluses
+./deploy.sh <cible> purge
 ```
 
 Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navigateur.
+
+### Persistance et cycle de vie
+
+`down` est conçu pour supprimer le coût GPU sans effacer les données quand le provider expose des volumes détachables. `purge` reprend le comportement destructeur total de Terraform et supprime aussi les volumes ou disques gérés par la stack.
+
+| Cible | Garantie après `down` |
+|---|---|
+| AWS | Modèles Ollama et conversations Open WebUI conservés sur volumes EBS séparés. |
+| Exoscale | Modèles et conversations conservés sur volumes Block Storage séparés. |
+| OVHcloud | Modèles et conversations conservés sur volumes Cinder séparés. |
+| RunPod | Données configurées sous `/workspace`; conservation dépend du cycle de vie du volume RunPod exposé par le provider. |
+| Vast.ai | Pas de volume détachable dans cette stack Terraform ; `down` détruit l'instance et ses données. |
+| Lyceum | Pas de volume détachable dans cette stack Terraform ; `down` détruit la VM et ses données. |
 
 ### Cible AWS
 
@@ -73,7 +89,7 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 3. `./deploy.sh runpod up`
 4. Ouvrez l'URL `https://<pod_id>-8080.proxy.runpod.net` renvoyée par `status`.
 
-> Sur RunPod, si `ollama_model` n'est pas pré-téléchargé, tirez le modèle depuis l'UI Open WebUI (persisté sur `/root/.ollama`).
+> Sur RunPod, si `ollama_model` n'est pas pré-téléchargé, tirez le modèle depuis l'UI Open WebUI. Les modèles et données Open WebUI sont configurés sous `/workspace`, le volume persistant exposé au pod.
 
 ### Cible Exoscale
 
@@ -93,7 +109,7 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 4. `./deploy.sh vastai up`
 5. `./deploy.sh vastai status` affiche `ssh_tunnel` : collez cette commande dans un terminal, puis ouvrez `http://localhost:3000`.
 
-> Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès à Open WebUI passe par le **tunnel SSH** (`ssh -L 3000:localhost:8080 …`). Les modèles sont pré-téléchargés via `ollama_model` ou tirés depuis l'UI.
+> Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès à Open WebUI passe par le **tunnel SSH** (`ssh -L 3000:localhost:8080 …`). Cette stack ne dispose pas de volume détachable Vast.ai ; `down` détruit donc l'instance et ses données.
 
 ### Cible OVHcloud
 
@@ -113,6 +129,7 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 5. **Provisionnez Open WebUI par SSH** (l'API ne gère pas de `user_data`) : la sortie `provision_hint` donne la commande. Puis `./deploy.sh lyceum status` affiche `ssh_tunnel` → ouvrez `http://localhost:3000`.
 
 > ⚠️ **Cible best-effort.** Lyceum n'a **pas de provider Terraform natif** : on pilote son [API REST](https://docs.lyceum.technology/) via le provider générique [`Mastercard/restapi`](https://registry.terraform.io/providers/Mastercard/restapi/latest). Le `terraform validate`/`test` ne valide que le HCL, **pas** la justesse des appels API. À **confirmer avant un `apply` réel** : le chemin exact du create (`/vms` vs `/vms/create`), la valeur `hardware_profile` GPU, et le fait que l'API create n'accepte pas de `user_data` (d'où le provisioning par SSH).
+> Cette stack ne dispose pas de volume détachable Lyceum ; `down` détruit donc la VM et ses données.
 
 ## Structure
 

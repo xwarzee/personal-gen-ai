@@ -10,7 +10,7 @@ setup() {
 
   # PATH « propre » : coreutils nécessaires à bootstrap, SANS docker ni ollama
   CLEANBIN="$(mktemp -d)"
-  for u in grep seq sleep cat sed; do
+  for u in grep seq sleep cat sed mkdir; do
     p="$(command -v "$u" 2>/dev/null)" && ln -sf "$p" "$CLEANBIN/$u"
   done
 }
@@ -28,8 +28,22 @@ make_toolbin() {
   OLLAMA_MODEL="" PATH="$TOOLBIN:$CLEANBIN" run "$BASH_BIN" "$BOOT"
   [ "$status" -eq 0 ]
   grep -q "docker: volume create ollama" "$MOCK_LOG"
+  grep -q "docker: volume create open-webui" "$MOCK_LOG"
   grep -q "docker: run" "$MOCK_LOG"
+  grep -q -- "-v ollama:/root/.ollama" "$MOCK_LOG"
+  grep -q -- "-v open-webui:/app/backend/data" "$MOCK_LOG"
   ! grep -q "pull" "$MOCK_LOG"
+}
+
+@test "mode hôte avec chemins persistants -> monte les chemins fournis" {
+  make_toolbin docker ollama
+  DATA_ROOT="$(mktemp -d)"
+  OLLAMA_DATA_DIR="$DATA_ROOT/ollama" OPENWEBUI_DATA_DIR="$DATA_ROOT/open-webui" OLLAMA_MODEL="" PATH="$TOOLBIN:$CLEANBIN" run "$BASH_BIN" "$BOOT"
+  [ "$status" -eq 0 ]
+  grep -q -- "-v $DATA_ROOT/ollama:/root/.ollama" "$MOCK_LOG"
+  grep -q -- "-v $DATA_ROOT/open-webui:/app/backend/data" "$MOCK_LOG"
+  ! grep -q "docker: volume create ollama" "$MOCK_LOG"
+  rm -rf "$DATA_ROOT"
 }
 
 @test "mode conteneur (ollama présent, docker absent) -> pull du modèle" {

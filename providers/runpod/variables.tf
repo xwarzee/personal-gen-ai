@@ -42,7 +42,7 @@ variable "container_disk_gb" {
 }
 
 variable "volume_gb" {
-  description = "Volume persistant monté sur /root/.ollama (Go) — pour conserver les modèles"
+  description = "Volume persistant monté sur /workspace (Go) — modèles Ollama et données Open WebUI"
   type        = number
   default     = 100
 }

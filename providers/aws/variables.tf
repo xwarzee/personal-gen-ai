@@ -29,3 +29,15 @@ variable "ollama_model" {
   default     = ""
 }
 
+
+variable "ollama_volume_size" {
+  description = "Taille du volume persistant pour les modèles Ollama (Go)"
+  type        = number
+  default     = 100
+}
+
+variable "openwebui_volume_size" {
+  description = "Taille du volume persistant pour les conversations Open WebUI (Go)"
+  type        = number
+  default     = 10
+}
