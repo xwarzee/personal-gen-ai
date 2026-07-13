@@ -22,6 +22,7 @@ skip-check:
   - CKV_AWS_382   # egress 0.0.0.0/0 — nécessaire (pull images Docker / modèles)
   - CKV_AWS_126   # detailed monitoring — coût, non pertinent ici
   - CKV_AWS_135   # EBS optimized — déjà par défaut sur g4dn, non-sécurité
+  - CKV_AWS_189   # EBS chiffré avec clé AWS-managed ; CMK dédiée hors scope usage perso
   - CKV2_AWS_12   # default SG du VPC — un SG dédié restrictif est déjà utilisé
   - CKV2_AWS_41   # rôle IAM sur l'EC2 — aucun appel API AWS depuis l'instance
   - CKV2_AWS_11   # VPC flow logs — audit/coût hors scope perso
