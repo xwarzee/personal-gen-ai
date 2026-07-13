@@ -29,4 +29,20 @@ run "instance_wiring" {
     condition     = strcontains(exoscale_compute_instance.gpu.user_data, "nvidia-container-toolkit")
     error_message = "Le user_data devrait installer nvidia-container-toolkit."
   }
+
+  assert {
+    condition = (
+      exoscale_block_storage_volume.ollama.size == var.ollama_volume_size &&
+      exoscale_block_storage_volume.openwebui.size == var.openwebui_volume_size
+    )
+    error_message = "Les volumes Block Storage persistants doivent être créés et attachés à l'instance."
+  }
+
+  assert {
+    condition = (
+      strcontains(exoscale_compute_instance.gpu.user_data, "OLLAMA_DATA_DIR=\"/mnt/ollama\"") &&
+      strcontains(exoscale_compute_instance.gpu.user_data, "OPENWEBUI_DATA_DIR=\"/mnt/openwebui\"")
+    )
+    error_message = "Le user_data devrait brancher le bootstrap sur les volumes persistants."
+  }
 }

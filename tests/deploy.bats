@@ -15,6 +15,7 @@ teardown() { rm -f "$MOCK_LOG"; }
   run "$PROJECT_ROOT/deploy.sh" foo up
   [ "$status" -eq 2 ]
   [[ "$output" == *"Usage:"* ]]
+  [[ "$output" == *"purge"* ]]
 }
 
 @test "action manquante -> exit 2" {
@@ -56,4 +57,17 @@ teardown() { rm -f "$MOCK_LOG"; }
   run "$PROJECT_ROOT/deploy.sh" aws status
   [ "$status" -eq 0 ]
   grep -q "terraform: output (cwd=aws)" "$MOCK_LOG"
+}
+
+@test "aws down -> détruit le compute et conserve les volumes de données" {
+  run "$PROJECT_ROOT/deploy.sh" aws down
+  [ "$status" -eq 0 ]
+  grep -q "terraform: destroy -auto-approve -target=aws_volume_attachment.ollama -target=aws_volume_attachment.openwebui -target=aws_instance.gpu_instance (cwd=aws)" "$MOCK_LOG"
+}
+
+@test "aws purge -> destroy complet" {
+  run "$PROJECT_ROOT/deploy.sh" aws purge
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"purge détruit toute la stack"* ]]
+  grep -q "terraform: destroy -auto-approve (cwd=aws)" "$MOCK_LOG"
 }

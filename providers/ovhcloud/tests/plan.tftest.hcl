@@ -26,4 +26,20 @@ run "instance_wiring" {
     condition     = strcontains(openstack_compute_instance_v2.gpu.user_data, "nvidia-container-toolkit")
     error_message = "Le user_data devrait installer nvidia-container-toolkit."
   }
+
+  assert {
+    condition = (
+      openstack_blockstorage_volume_v3.ollama.size == var.ollama_volume_size &&
+      openstack_blockstorage_volume_v3.openwebui.size == var.openwebui_volume_size
+    )
+    error_message = "Les volumes Cinder persistants doivent être créés et attachés à l'instance."
+  }
+
+  assert {
+    condition = (
+      strcontains(openstack_compute_instance_v2.gpu.user_data, "OLLAMA_DATA_DIR=\"/mnt/ollama\"") &&
+      strcontains(openstack_compute_instance_v2.gpu.user_data, "OPENWEBUI_DATA_DIR=\"/mnt/openwebui\"")
+    )
+    error_message = "Le user_data devrait brancher le bootstrap sur les volumes persistants."
+  }
 }

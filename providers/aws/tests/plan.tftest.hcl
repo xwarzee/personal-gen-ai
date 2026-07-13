@@ -27,4 +27,22 @@ run "instance_wiring" {
     condition     = strcontains(aws_instance.gpu_instance.user_data, "open-webui")
     error_message = "Le user_data devrait lancer Open WebUI."
   }
+
+  assert {
+    condition = (
+      aws_ebs_volume.ollama.size == var.ollama_volume_size &&
+      aws_ebs_volume.openwebui.size == var.openwebui_volume_size &&
+      aws_ebs_volume.ollama.encrypted &&
+      aws_ebs_volume.openwebui.encrypted
+    )
+    error_message = "Les volumes EBS persistants doivent être dimensionnés via variables et chiffrés."
+  }
+
+  assert {
+    condition = (
+      strcontains(aws_instance.gpu_instance.user_data, "OLLAMA_DATA_DIR=\"/mnt/ollama\"") &&
+      strcontains(aws_instance.gpu_instance.user_data, "OPENWEBUI_DATA_DIR=\"/mnt/openwebui\"")
+    )
+    error_message = "Le user_data devrait brancher le bootstrap sur les volumes persistants."
+  }
 }
