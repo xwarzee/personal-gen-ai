@@ -6,8 +6,9 @@
 # Le script s'auto-adapte à son environnement :
 #
 #   - Mode HÔTE (Docker présent, ex. EC2 Deep Learning AMI) :
-#       crée les volumes, lance le conteneur open-webui:ollama sur le port
-#       3000, puis (optionnel) pré-télécharge un modèle Ollama.
+#       prépare les sources de données persistantes, lance le conteneur
+#       open-webui:ollama sur le port 3000, puis (optionnel) pré-télécharge
+#       un modèle Ollama.
 #
 #   - Mode CONTENEUR (pas de Docker mais `ollama` sur le PATH, ex. le pod
 #       RunPod qui EST déjà l'image open-webui:ollama) :
@@ -15,17 +16,33 @@
 #       (optionnel) pré-télécharger le modèle.
 #
 # Variables d'environnement :
-#   OLLAMA_MODEL   modèle à pré-télécharger (ex. "llama3.2"). Vide => aucun.
-#   OPENWEBUI_IMAGE image à lancer en mode hôte (défaut open-webui:ollama).
-#   HOST_PORT      port hôte exposé en mode hôte (défaut 3000).
+#   OLLAMA_MODEL       modèle à pré-télécharger (ex. "llama3.2"). Vide => aucun.
+#   OLLAMA_DATA_DIR    chemin ou volume Docker pour Ollama (défaut: ollama).
+#   OPENWEBUI_DATA_DIR chemin ou volume Docker pour Open WebUI (défaut: open-webui).
+#   OPENWEBUI_IMAGE    image à lancer en mode hôte (défaut open-webui:ollama).
+#   HOST_PORT          port hôte exposé en mode hôte (défaut 3000).
 ###############################################################################
 set -eu
 
 OLLAMA_MODEL="${OLLAMA_MODEL:-}"
+OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-ollama}"
+OPENWEBUI_DATA_DIR="${OPENWEBUI_DATA_DIR:-open-webui}"
 OPENWEBUI_IMAGE="${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:ollama}"
 HOST_PORT="${HOST_PORT:-3000}"
 
 log() { echo "[bootstrap] $*"; }
+
+prepare_mount_source() {
+  # $1 = chemin hôte ou nom de volume Docker.
+  case "$1" in
+    /* | ./* | ../*)
+      mkdir -p "$1"
+      ;;
+    *)
+      docker volume create "$1" >/dev/null
+      ;;
+  esac
+}
 
 pull_model() {
   # $1 = commande ollama (ex. "ollama" ou "docker exec open-webui ollama")
@@ -44,14 +61,14 @@ if command -v docker >/dev/null 2>&1; then
   # Mode HÔTE
   #############################################################################
   log "Docker détecté -> mode hôte."
-  docker volume create ollama >/dev/null
-  docker volume create open-webui >/dev/null
+  prepare_mount_source "$OLLAMA_DATA_DIR"
+  prepare_mount_source "$OPENWEBUI_DATA_DIR"
 
   if ! docker ps -a --format '{{.Names}}' | grep -qx open-webui; then
     log "Lancement du conteneur open-webui..."
     docker run -d -p "${HOST_PORT}:8080" --gpus=all \
-      -v ollama:/root/.ollama \
-      -v open-webui:/app/backend/data \
+      -v "${OLLAMA_DATA_DIR}:/root/.ollama" \
+      -v "${OPENWEBUI_DATA_DIR}:/app/backend/data" \
       --name open-webui \
       --restart always \
       "$OPENWEBUI_IMAGE"

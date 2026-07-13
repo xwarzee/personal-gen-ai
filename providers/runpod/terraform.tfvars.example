@@ -7,6 +7,6 @@ cloud_type        = "COMMUNITY"            # le moins cher ; "SECURE" pour du da
 gpu_type_ids      = ["NVIDIA GeForce RTX 4090"]  # cf. console RunPod pour les identifiants exacts
 gpu_count         = 1
 container_disk_gb = 30
-volume_gb         = 100                    # persistance des modèles Ollama sur /root/.ollama
+volume_gb         = 100                    # volume /workspace pour modèles Ollama + données Open WebUI
 web_port          = 8080
 ollama_model      = ""                     # ex: "llama3.2" pour pré-télécharger un modèle

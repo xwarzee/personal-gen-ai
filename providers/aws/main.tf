@@ -221,6 +221,8 @@ resource "aws_instance" "gpu_instance" {
 
               # --- Bootstrap partagé : volumes + conteneur Open WebUI + pull modèle ---
               export OLLAMA_MODEL="${var.ollama_model}"
+              export OLLAMA_DATA_DIR="/mnt/ollama"
+              export OPENWEBUI_DATA_DIR="/mnt/openwebui"
               ${local.bootstrap}
 
               # --- Nginx HTTPS auto-signé (fragment partagé) ---
@@ -229,4 +231,3 @@ resource "aws_instance" "gpu_instance" {
 
   tags = { Name = var.instance_name }
 }
-

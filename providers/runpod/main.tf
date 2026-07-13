@@ -27,16 +27,18 @@ resource "runpod_pod" "gpu" {
   gpu_type_ids = var.gpu_type_ids
   gpu_count    = var.gpu_count
 
-  # Disque éphémère du conteneur + volume persistant pour les modèles Ollama
+  # Disque éphémère du conteneur + volume persistant partagé.
   container_disk_in_gb = var.container_disk_gb
   volume_in_gb         = var.volume_gb
-  volume_mount_path    = "/root/.ollama"
+  volume_mount_path    = "/workspace"
 
   # Port HTTP exposé -> proxifié en HTTPS par RunPod
   ports = ["${var.web_port}/http"]
 
   # Modèle Ollama à pré-télécharger (voir README : pull possible aussi via l'UI)
   env = {
-    OLLAMA_MODEL = var.ollama_model
+    OLLAMA_MODEL  = var.ollama_model
+    OLLAMA_MODELS = "/workspace/ollama/models"
+    DATA_DIR      = "/workspace/open-webui"
   }
 }

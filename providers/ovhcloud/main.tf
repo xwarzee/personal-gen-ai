@@ -78,6 +78,8 @@ locals {
 
     # --- Bootstrap partagé : conteneur Open WebUI (--gpus all) + pull modèle ---
     export OLLAMA_MODEL="${var.ollama_model}"
+    export OLLAMA_DATA_DIR="/mnt/ollama"
+    export OPENWEBUI_DATA_DIR="/mnt/openwebui"
     ${local.bootstrap}
 
     # --- Nginx HTTPS auto-signé (fragment partagé) ---
