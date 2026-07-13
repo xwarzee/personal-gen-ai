@@ -45,6 +45,37 @@ locals {
     modprobe nvidia || true
     systemctl restart docker
 
+    # --- Montage des volumes persistants ---
+    # Attendre que les volumes soient disponibles
+    for vol in vdb vdc; do
+      for i in $(seq 1 30); do
+        if lsblk /dev/$vol >/dev/null 2>&1; then break; fi
+        sleep 2
+      done
+    done
+
+    # Formater et monter le volume Ollama
+    if ! blkid /dev/vdb >/dev/null 2>&1; then
+      mkfs.ext4 /dev/vdb
+    fi
+    mkdir -p /mnt/ollama
+    mount /dev/vdb /mnt/ollama
+    chown -R root:root /mnt/ollama
+    ln -sf /mnt/ollama /root/.ollama
+
+    # Formater et monter le volume Open WebUI
+    if ! blkid /dev/vdc >/dev/null 2>&1; then
+      mkfs.ext4 /dev/vdc
+    fi
+    mkdir -p /mnt/openwebui
+    mount /dev/vdc /mnt/openwebui
+    chown -R root:root /mnt/openwebui
+    ln -sf /mnt/openwebui /app/backend/data
+
+    # Ajouter au fstab
+    echo "/dev/vdb /mnt/ollama ext4 defaults,nofail 0 2" >> /etc/fstab
+    echo "/dev/vdc /mnt/openwebui ext4 defaults,nofail 0 2" >> /etc/fstab
+
     # --- Bootstrap partagé : conteneur Open WebUI (--gpus all) + pull modèle ---
     export OLLAMA_MODEL="${var.ollama_model}"
     ${local.bootstrap}
@@ -87,6 +118,32 @@ resource "openstack_networking_secgroup_rule_v2" "ingress" {
   security_group_id = openstack_networking_secgroup_v2.ai.id
 }
 
+
+########################################
+# Persistent Cinder Volumes
+########################################
+
+resource "openstack_blockstorage_volume_v3" "ollama" {
+  name        = "${var.instance_name}-ollama"
+  size        = var.ollama_volume_size
+  volume_type = "ceph-ext4"
+}
+
+resource "openstack_blockstorage_volume_v3" "openwebui" {
+  name        = "${var.instance_name}-openwebui"
+  size        = var.openwebui_volume_size
+  volume_type = "ceph-ext4"
+}
+
+resource "openstack_compute_volume_attach_v2" "ollama" {
+  instance_id = openstack_compute_instance_v2.gpu.id
+  volume_id   = openstack_blockstorage_volume_v3.ollama.id
+}
+
+resource "openstack_compute_volume_attach_v2" "openwebui" {
+  instance_id = openstack_compute_instance_v2.gpu.id
+  volume_id   = openstack_blockstorage_volume_v3.openwebui.id
+}
 ########################################
 # Instance GPU
 ########################################

@@ -45,3 +45,15 @@ variable "ollama_model" {
   type        = string
   default     = ""
 }
+
+variable "ollama_volume_size" {
+  description = "Taille du volume Cinder pour Ollama (Go)"
+  type        = number
+  default     = 100
+}
+
+variable "openwebui_volume_size" {
+  description = "Taille du volume Cinder pour Open WebUI (Go)"
+  type        = number
+  default     = 10
+}
