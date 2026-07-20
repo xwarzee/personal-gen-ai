@@ -71,3 +71,21 @@ teardown() { rm -f "$MOCK_LOG"; }
   [[ "$output" == *"purge détruit toute la stack"* ]]
   grep -q "terraform: destroy -auto-approve (cwd=aws)" "$MOCK_LOG"
 }
+
+@test "vastai up avec moteur inconnu -> exit 2 + usage" {
+  run "$PROJECT_ROOT/deploy.sh" vastai up bogus
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"Moteur inconnu"* ]]
+}
+
+@test "moteur sur une cible != vastai -> exit 1" {
+  run "$PROJECT_ROOT/deploy.sh" aws up vllm
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"vastai"* ]]
+}
+
+@test "vastai status vllm -> moteur accepté, routage terraform output" {
+  VASTAI_API_KEY=x run "$PROJECT_ROOT/deploy.sh" vastai status vllm
+  [ "$status" -eq 0 ]
+  grep -q "terraform: output (cwd=vastai)" "$MOCK_LOG"
+}
