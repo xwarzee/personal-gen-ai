@@ -11,9 +11,13 @@
 #       un modèle Ollama.
 #
 #   - Mode CONTENEUR (pas de Docker mais `ollama` sur le PATH, ex. le pod
-#       RunPod qui EST déjà l'image open-webui:ollama) :
-#       le conteneur est déjà lancé par la plateforme, on se contente de
-#       (optionnel) pré-télécharger le modèle.
+#       RunPod, ou une instance Vast.ai en runtype ssh, qui EST déjà l'image
+#       open-webui:ollama) :
+#       démarre au besoin `ollama serve` et le backend Open WebUI (l'entrypoint
+#       de l'image n'est pas toujours exécuté par la plateforme — cas de
+#       Vast.ai en runtype ssh), puis (optionnel) pré-télécharge le modèle.
+#       Idempotent : si la plateforme a déjà lancé les services (RunPod), on
+#       ne relance rien.
 #
 # Variables d'environnement :
 #   OLLAMA_MODEL       modèle à pré-télécharger (ex. "llama3.2"). Vide => aucun.
@@ -80,9 +84,41 @@ if command -v docker >/dev/null 2>&1; then
 
 elif command -v ollama >/dev/null 2>&1; then
   #############################################################################
-  # Mode CONTENEUR (RunPod : l'image est déjà le service)
+  # Mode CONTENEUR (RunPod, Vast.ai runtype ssh : l'image EST le service)
   #############################################################################
   log "Ollama détecté sans Docker -> mode conteneur."
+
+  # Certaines plateformes n'exécutent pas l'entrypoint de l'image (Vast.ai en
+  # runtype ssh) : ni « ollama serve » ni le backend Open WebUI ne tournent.
+  # On les démarre au besoin. Checks idempotents : si déjà lancés (RunPod),
+  # on ne relance rien.
+
+  # 1) ollama serve
+  if ! ollama list >/dev/null 2>&1; then
+    log "Démarrage d'ollama serve..."
+    nohup ollama serve >/var/log/ollama.log 2>&1 &
+    for _ in $(seq 1 30); do
+      if ollama list >/dev/null 2>&1; then break; fi
+      sleep 2
+    done
+  fi
+
+  # 2) Backend Open WebUI (port 8080). On lance le start.sh de l'image, en
+  #    forçant USE_OLLAMA_DOCKER=false puisqu'ollama est déjà démarré ci-dessus.
+  #    OLLAMA_BASE_URL : l'image/Vast.ai la fixe à "/ollama" (reverse-proxy),
+  #    invalide hors de ce proxy (on accède par tunnel SSH) -> on force l'URL
+  #    absolue du serveur Ollama local, sinon Open WebUI ne voit aucun modèle.
+  if ! curl -sf -o /dev/null "http://localhost:8080/health" 2>/dev/null; then
+    if [ -f /app/backend/start.sh ]; then
+      log "Démarrage du backend Open WebUI (start.sh)..."
+      ( cd /app/backend \
+        && OLLAMA_BASE_URL="http://localhost:11434" USE_OLLAMA_DOCKER=false \
+           nohup bash start.sh >/var/log/open-webui.log 2>&1 & )
+    else
+      log "AVERTISSEMENT: /app/backend/start.sh introuvable ; Open WebUI non démarré."
+    fi
+  fi
+
   pull_model "ollama"
 
 else

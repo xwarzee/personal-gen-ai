@@ -6,9 +6,9 @@ variable "api_key" {
 }
 
 variable "gpu_name" {
-  description = "Identifiant du modèle de GPU recherché (ex: RTX_4090, RTX_3090, A40)"
+  description = "Nom du modèle de GPU recherché, tel qu'exposé par l'API Vast.ai avec des espaces (ex: \"RTX 4090\", \"RTX 3090\", \"A40\")"
   type        = string
-  default     = "RTX_4090"
+  default     = "RTX 4090"
 }
 
 variable "num_gpus" {
@@ -51,4 +51,15 @@ variable "ollama_model" {
   description = "Modèle Ollama à pré-télécharger au démarrage (vide = aucun, récupérable via l'UI)"
   type        = string
   default     = ""
+}
+
+variable "order_by" {
+  description = "Colonne de tri des offres Vast.ai. Doit être un champ triable de l'API des bundles (ex: dph_total = prix/h)."
+  type        = string
+  default     = "dph_total"
+
+  validation {
+    condition     = contains(["dph_total", "dlperf_per_dphtotal", "gpu_ram"], var.order_by)
+    error_message = "order_by doit valoir 'dph_total', 'dlperf_per_dphtotal' ou 'gpu_ram' (colonnes triables de l'API Vast.ai ; 'price' n'existe pas et renvoie un 400)."
+  }
 }

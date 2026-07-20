@@ -109,6 +109,8 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 4. `./deploy.sh vastai up`
 5. `./deploy.sh vastai status` affiche `ssh_tunnel` : collez cette commande dans un terminal, puis ouvrez `http://localhost:3000`.
 
+> **Format du nom de GPU** : `gpu_name` doit reprendre exactement le libellé de l'API Vast.ai, **avec des espaces** (`"RTX 4090"`, `"RTX 3090"`, `"H100 SXM"`…), et non des underscores (`RTX_4090`). Un underscore ne matche aucune offre : la recherche renvoie une liste vide et le déploiement échoue à la sélection de l'offre.
+
 > Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès à Open WebUI passe par le **tunnel SSH** (`ssh -L 3000:localhost:8080 …`). Cette stack ne dispose pas de volume détachable Vast.ai ; `down` détruit donc l'instance et ses données.
 
 ### Cible OVHcloud
