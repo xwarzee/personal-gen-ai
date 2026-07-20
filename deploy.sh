@@ -20,18 +20,34 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-  echo "Usage: $0 <aws|runpod|exoscale|vastai|ovhcloud|lyceum> <up|down|purge|status>" >&2
+  echo "Usage: $0 <aws|runpod|exoscale|vastai|ovhcloud|lyceum> <up|down|purge|status> [openwebui|vllm]" >&2
+  echo "       Le 3e argument (moteur) n'est supporté que pour la cible vastai (défaut: openwebui)." >&2
   exit 2
 }
 
-[ $# -eq 2 ] || usage
+{ [ $# -ge 2 ] && [ $# -le 3 ]; } || usage
 TARGET="$1"
 ACTION="$2"
+ENGINE="${3:-openwebui}"
 
 case "$TARGET" in
   aws|runpod|exoscale|vastai|ovhcloud|lyceum) ;;
   *) echo "Cible inconnue: '$TARGET'" >&2; usage ;;
 esac
+
+# Moteur de service (3e argument). Seule la cible vastai le gère aujourd'hui.
+case "$ENGINE" in
+  openwebui|vllm) ;;
+  *) echo "Moteur inconnu: '$ENGINE' (attendu: openwebui | vllm)" >&2; usage ;;
+esac
+
+if [ $# -eq 3 ] && [ "$TARGET" != "vastai" ]; then
+  echo "ERREUR: le choix du moteur ('$ENGINE') n'est supporté que pour la cible vastai." >&2
+  exit 1
+fi
+
+# Transmis à Terraform (providers/vastai) via la variable d'environnement standard.
+export TF_VAR_engine="$ENGINE"
 
 STACK_DIR="$SCRIPT_DIR/providers/$TARGET"
 [ -d "$STACK_DIR" ] || { echo "Répertoire de stack introuvable: $STACK_DIR" >&2; exit 1; }
