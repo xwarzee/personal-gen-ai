@@ -10,8 +10,19 @@ provider "vastai" {
 }
 
 locals {
-  # Réutilise la logique métier partagée (mode conteneur : ollama pull).
-  onstart = "export OLLAMA_MODEL='${var.ollama_model}'\n${file("${path.module}/../../common/bootstrap.sh")}"
+  # Réutilise la logique métier partagée (bootstrap.sh, auto-adaptatif). On lui
+  # transmet le contexte du moteur choisi via des exports avant de l'inliner :
+  # ENGINE=openwebui -> Open WebUI + Ollama ; ENGINE=vllm -> serveur vLLM.
+  # (hf_token est optionnel ; vide par défaut => aucun secret dans onstart.)
+  onstart = join("\n", [
+    "export ENGINE='${var.engine}'",
+    "export OLLAMA_MODEL='${var.ollama_model}'",
+    "export VLLM_MODEL='${var.vllm_model}'",
+    "export VLLM_PORT='${var.vllm_port}'",
+    "export VLLM_EXTRA_ARGS='${var.vllm_extra_args}'",
+    "export HF_TOKEN='${var.hf_token}'",
+    file("${path.module}/../../common/bootstrap.sh"),
+  ])
 }
 
 ########################################
@@ -46,8 +57,10 @@ resource "vastai_instance" "gpu" {
   # try(...) évite l'erreur cryptique "attribute from null value" quand la
   # recherche ne renvoie aucune offre ; la precondition ci-dessous prend le
   # relais avec un message actionnable.
-  offer_id    = try(data.vastai_gpu_offers.sel.most_affordable.id, 0)
-  image       = "ghcr.io/open-webui/open-webui:ollama"
+  offer_id = try(data.vastai_gpu_offers.sel.most_affordable.id, 0)
+  # L'image DÉPEND du moteur : open-webui:ollama (UI) ou vllm/vllm-openai (API).
+  # Hors ignore_changes ci-dessous : changer de moteur DOIT recréer l'instance.
+  image       = var.engine == "vllm" ? var.vllm_image : "ghcr.io/open-webui/open-webui:ollama"
   disk_gb     = var.disk_gb
   label       = var.label
   use_ssh     = true

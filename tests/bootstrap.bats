@@ -9,8 +9,9 @@ setup() {
   MOCK_LOG="$(mktemp)"; export MOCK_LOG
 
   # PATH « propre » : coreutils nécessaires à bootstrap, SANS docker ni ollama
+  # (ni vllm ni curl : le health-check vLLM échoue donc et déclenche le start).
   CLEANBIN="$(mktemp -d)"
-  for u in grep seq sleep cat sed mkdir; do
+  for u in grep seq sleep cat sed mkdir nohup; do
     p="$(command -v "$u" 2>/dev/null)" && ln -sf "$p" "$CLEANBIN/$u"
   done
 }
@@ -57,4 +58,39 @@ make_toolbin() {
   PATH="$CLEANBIN" run "$BASH_BIN" "$BOOT"
   [ "$status" -eq 0 ]
   [[ "$output" == *"rien à faire"* ]]
+}
+
+@test "vLLM mode hôte (ENGINE=vllm + docker) -> run vllm/vllm-openai sur 8000" {
+  make_toolbin docker
+  ENGINE="vllm" PATH="$TOOLBIN:$CLEANBIN" run "$BASH_BIN" "$BOOT"
+  [ "$status" -eq 0 ]
+  grep -q "docker: volume create vllm-cache" "$MOCK_LOG"
+  grep -q "docker: run" "$MOCK_LOG"
+  grep -q -- "-p 8000:8000" "$MOCK_LOG"
+  grep -q -- "-v vllm-cache:/root/.cache/huggingface" "$MOCK_LOG"
+  grep -q "vllm/vllm-openai:latest" "$MOCK_LOG"
+  grep -q -- "--model Qwen/Qwen2.5-1.5B-Instruct" "$MOCK_LOG"
+  # aucun résidu Open WebUI / Ollama
+  ! grep -q "open-webui" "$MOCK_LOG"
+  ! grep -q "volume create ollama" "$MOCK_LOG"
+}
+
+@test "vLLM mode conteneur (ENGINE=vllm + vllm, sans docker) -> démarre le serveur" {
+  make_toolbin vllm
+  VLLM_LOG="$(mktemp)"
+  ENGINE="vllm" VLLM_LOG="$VLLM_LOG" PATH="$TOOLBIN:$CLEANBIN" run "$BASH_BIN" "$BOOT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Démarrage du serveur vLLM"* ]]
+  [[ "$output" == *"port 8000"* ]]
+  # pas de bascule vers Ollama / Open WebUI
+  ! grep -q "ollama:" "$MOCK_LOG"
+  rm -f "$VLLM_LOG"
+}
+
+@test "moteur par défaut (ENGINE non défini) -> Open WebUI, pas de vLLM" {
+  make_toolbin docker ollama
+  OLLAMA_MODEL="" PATH="$TOOLBIN:$CLEANBIN" run "$BASH_BIN" "$BOOT"
+  [ "$status" -eq 0 ]
+  grep -q "open-webui" "$MOCK_LOG"
+  ! grep -q "vllm" "$MOCK_LOG"
 }

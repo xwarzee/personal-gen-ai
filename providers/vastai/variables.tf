@@ -63,3 +63,54 @@ variable "order_by" {
     error_message = "order_by doit valoir 'dph_total', 'dlperf_per_dphtotal' ou 'gpu_ram' (colonnes triables de l'API Vast.ai ; 'price' n'existe pas et renvoie un 400)."
   }
 }
+
+########################################
+# Choix du moteur de service
+#
+# "openwebui" (défaut) : Open WebUI + Ollama, UI navigateur (tunnel -> :3000).
+# "vllm"               : serveur vLLM exposant une API OpenAI-compatible (:8000).
+# Se choisit de préférence via deploy.sh : `./deploy.sh vastai up vllm`
+# (qui exporte TF_VAR_engine). Les variables vllm_* ne servent qu'en mode vllm.
+########################################
+
+variable "engine" {
+  description = "Moteur de service : 'openwebui' (Open WebUI + Ollama) ou 'vllm' (serveur OpenAI-compatible)."
+  type        = string
+  default     = "openwebui"
+
+  validation {
+    condition     = contains(["openwebui", "vllm"], var.engine)
+    error_message = "engine doit valoir 'openwebui' ou 'vllm'."
+  }
+}
+
+variable "vllm_model" {
+  description = "Modèle HuggingFace servi par vLLM (ex: \"Qwen/Qwen2.5-1.5B-Instruct\"). Utilisé seulement si engine=vllm."
+  type        = string
+  default     = "Qwen/Qwen2.5-1.5B-Instruct"
+}
+
+variable "vllm_image" {
+  description = "Image conteneur vLLM à déployer si engine=vllm."
+  type        = string
+  default     = "vllm/vllm-openai:latest"
+}
+
+variable "vllm_port" {
+  description = "Port d'écoute de l'API OpenAI-compatible de vLLM."
+  type        = number
+  default     = 8000
+}
+
+variable "vllm_extra_args" {
+  description = "Arguments CLI additionnels passés à vLLM (ex: \"--max-model-len 8192 --dtype half\")."
+  type        = string
+  default     = ""
+}
+
+variable "hf_token" {
+  description = "Token HuggingFace pour les modèles gated (vide = aucun ; requis pour les modèles à accès restreint). De préférence via TF_VAR_hf_token."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

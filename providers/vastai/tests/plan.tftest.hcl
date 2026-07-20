@@ -28,3 +28,31 @@ run "instance_wiring" {
     error_message = "La commande de tunnel SSH devrait forwarder 3000 -> 8080."
   }
 }
+
+run "vllm_wiring" {
+  command = apply
+
+  variables {
+    engine = "vllm"
+  }
+
+  assert {
+    condition     = vastai_instance.gpu.image == "vllm/vllm-openai:latest"
+    error_message = "En mode vllm, l'image de l'instance doit être vllm/vllm-openai."
+  }
+
+  assert {
+    condition     = strcontains(vastai_instance.gpu.onstart, "export ENGINE='vllm'")
+    error_message = "onstart doit exporter ENGINE='vllm' pour bootstrap.sh."
+  }
+
+  assert {
+    condition     = strcontains(output.ssh_tunnel, "-L 8000:localhost:8000")
+    error_message = "En mode vllm, le tunnel SSH devrait forwarder 8000 -> 8000."
+  }
+
+  assert {
+    condition     = strcontains(output.endpoint_url, "/v1")
+    error_message = "En mode vllm, endpoint_url doit pointer vers l'API OpenAI-compatible (/v1)."
+  }
+}

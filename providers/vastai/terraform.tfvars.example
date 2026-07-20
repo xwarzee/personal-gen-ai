@@ -8,5 +8,15 @@ gpu_ram_gb_min      = 24
 max_price           = 0.50                    # USD/h max
 disk_gb             = 100                      # place pour les modèles Ollama
 ssh_public_key_path = "~/.ssh/id_ed25519.pub" # clé publique locale (pour le tunnel SSH)
-ollama_model        = ""                       # ex: "llama3.2" pour pré-télécharger un modèle
+ollama_model        = ""                       # ex: "llama3.2" pour pré-télécharger un modèle (moteur openwebui)
 label               = "personal-gen-ai"
+
+# --- Choix du moteur de service ---
+# Le moteur se choisit de préférence via deploy.sh :
+#   ./deploy.sh vastai up          # Open WebUI + Ollama (défaut)
+#   ./deploy.sh vastai up vllm     # serveur vLLM (API OpenAI-compatible)
+# Les variables ci-dessous ne servent qu'en mode vllm :
+# vllm_model      = "Qwen/Qwen2.5-1.5B-Instruct" # id HuggingFace du modèle servi
+# vllm_extra_args = ""                            # ex: "--max-model-len 8192 --dtype half"
+# hf_token        = ""                            # requis seulement pour les modèles gated
+#                                                 # (de préférence via: export TF_VAR_hf_token=hf_...)

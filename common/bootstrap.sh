@@ -19,20 +19,44 @@
 #       Idempotent : si la plateforme a déjà lancé les services (RunPod), on
 #       ne relance rien.
 #
+# Le moteur de service se choisit via ENGINE :
+#   ENGINE=openwebui (défaut) : Open WebUI + Ollama (UI navigateur, port 8080).
+#   ENGINE=vllm               : serveur vLLM, API OpenAI-compatible (port 8000).
+# La détection hôte/conteneur ci-dessus s'applique aux DEUX moteurs.
+#
 # Variables d'environnement :
+#   ENGINE             "openwebui" (défaut) ou "vllm".
 #   OLLAMA_MODEL       modèle à pré-télécharger (ex. "llama3.2"). Vide => aucun.
 #   OLLAMA_DATA_DIR    chemin ou volume Docker pour Ollama (défaut: ollama).
 #   OPENWEBUI_DATA_DIR chemin ou volume Docker pour Open WebUI (défaut: open-webui).
 #   OPENWEBUI_IMAGE    image à lancer en mode hôte (défaut open-webui:ollama).
 #   HOST_PORT          port hôte exposé en mode hôte (défaut 3000).
+#   -- spécifiques vLLM (ENGINE=vllm) --
+#   VLLM_MODEL         modèle HuggingFace servi (défaut Qwen/Qwen2.5-1.5B-Instruct).
+#   VLLM_IMAGE         image conteneur vLLM en mode hôte (défaut vllm/vllm-openai:latest).
+#   VLLM_PORT          port de l'API OpenAI-compatible (défaut 8000).
+#   VLLM_EXTRA_ARGS    args CLI additionnels vLLM (ex. "--max-model-len 8192").
+#   VLLM_CACHE_DIR     chemin/volume du cache HuggingFace en mode hôte (défaut vllm-cache).
+#   VLLM_LOG           fichier de log du serveur vLLM (défaut /var/log/vllm.log).
+#   HF_TOKEN           token HuggingFace pour modèles gated (vide => aucun).
 ###############################################################################
 set -eu
+
+ENGINE="${ENGINE:-openwebui}"
 
 OLLAMA_MODEL="${OLLAMA_MODEL:-}"
 OLLAMA_DATA_DIR="${OLLAMA_DATA_DIR:-ollama}"
 OPENWEBUI_DATA_DIR="${OPENWEBUI_DATA_DIR:-open-webui}"
 OPENWEBUI_IMAGE="${OPENWEBUI_IMAGE:-ghcr.io/open-webui/open-webui:ollama}"
 HOST_PORT="${HOST_PORT:-3000}"
+
+VLLM_MODEL="${VLLM_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
+VLLM_IMAGE="${VLLM_IMAGE:-vllm/vllm-openai:latest}"
+VLLM_PORT="${VLLM_PORT:-8000}"
+VLLM_EXTRA_ARGS="${VLLM_EXTRA_ARGS:-}"
+VLLM_CACHE_DIR="${VLLM_CACHE_DIR:-vllm-cache}"
+VLLM_LOG="${VLLM_LOG:-/var/log/vllm.log}"
+HF_TOKEN="${HF_TOKEN:-}"
 
 log() { echo "[bootstrap] $*"; }
 
@@ -60,7 +84,54 @@ pull_model() {
   $1 pull "$OLLAMA_MODEL" || log "AVERTISSEMENT: échec du pull de $OLLAMA_MODEL (récupérable via l'UI)."
 }
 
-if command -v docker >/dev/null 2>&1; then
+start_vllm() {
+  ###########################################################################
+  # Moteur vLLM : serveur d'inférence exposant une API OpenAI-compatible.
+  # Même détection hôte/conteneur que pour Open WebUI. Pas d'Ollama ici :
+  # vLLM télécharge le modèle HuggingFace au démarrage.
+  ###########################################################################
+  if command -v docker >/dev/null 2>&1; then
+    log "Docker détecté -> mode hôte (vLLM)."
+    prepare_mount_source "$VLLM_CACHE_DIR"
+
+    if ! docker ps -a --format '{{.Names}}' | grep -qx vllm; then
+      log "Lancement du conteneur vLLM (API OpenAI-compatible)..."
+      hf_env=""
+      [ -n "$HF_TOKEN" ] && hf_env="-e HUGGING_FACE_HUB_TOKEN=$HF_TOKEN"
+      # shellcheck disable=SC2086  # $hf_env / $VLLM_EXTRA_ARGS : découpage voulu
+      docker run -d -p "${VLLM_PORT}:8000" --gpus=all \
+        -v "${VLLM_CACHE_DIR}:/root/.cache/huggingface" \
+        $hf_env \
+        --name vllm \
+        --restart always \
+        "$VLLM_IMAGE" \
+        --model "$VLLM_MODEL" $VLLM_EXTRA_ARGS
+    else
+      log "Conteneur vLLM déjà présent."
+    fi
+
+  elif command -v vllm >/dev/null 2>&1; then
+    # L'image EST vllm/vllm-openai (Vast.ai runtype ssh). L'entrypoint n'étant
+    # pas toujours exécuté par la plateforme, on démarre le serveur au besoin.
+    log "vLLM détecté sans Docker -> mode conteneur."
+    if ! curl -sf -o /dev/null "http://localhost:${VLLM_PORT}/health" 2>/dev/null; then
+      log "Démarrage du serveur vLLM (OpenAI-compatible) sur le port ${VLLM_PORT}..."
+      [ -n "$HF_TOKEN" ] && export HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+      # shellcheck disable=SC2086  # $VLLM_EXTRA_ARGS : découpage voulu
+      nohup vllm serve "$VLLM_MODEL" --host 0.0.0.0 --port "$VLLM_PORT" $VLLM_EXTRA_ARGS \
+        >"$VLLM_LOG" 2>&1 &
+    else
+      log "Serveur vLLM déjà en écoute sur ${VLLM_PORT}."
+    fi
+
+  else
+    log "Ni Docker ni vLLM trouvés — rien à faire."
+  fi
+}
+
+if [ "$ENGINE" = "vllm" ]; then
+  start_vllm
+elif command -v docker >/dev/null 2>&1; then
   #############################################################################
   # Mode HÔTE
   #############################################################################
