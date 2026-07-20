@@ -27,7 +27,7 @@ Les six cibles sont pilotées par un dispatcher unique : `./deploy.sh <cible> <a
 | Persistance données | Volumes EBS détachables | Volume RunPod `/workspace` | Volumes Block Storage détachables | Disque de l'instance | Volumes Cinder détachables | Disque de la VM |
 
 La logique commune est factorisée dans [`common/`](common/) :
-- [`common/bootstrap.sh`](common/bootstrap.sh) — lancement d'Open WebUI + pré-téléchargement du modèle Ollama (auto-adaptatif hôte/conteneur), réutilisé par **toutes** les cibles ;
+- [`common/bootstrap.sh`](common/bootstrap.sh) — lancement d'Open WebUI + pré-téléchargement du modèle Ollama (auto-adaptatif hôte/conteneur), réutilisé par **toutes** les cibles ; gère aussi le moteur **vLLM** (API OpenAI-compatible) via `ENGINE=vllm` (exposé sur la cible Vast.ai, cf. sa section) ;
 - [`common/nginx-https.sh`](common/nginx-https.sh) — reverse-proxy HTTPS auto-signé, réutilisé par les cibles « vraie VM » (AWS, Exoscale, OVHcloud).
 
 ## Prérequis
@@ -109,9 +109,34 @@ Chaque commande affiche notamment `https_url`, l'adresse à ouvrir dans le navig
 4. `./deploy.sh vastai up`
 5. `./deploy.sh vastai status` affiche `ssh_tunnel` : collez cette commande dans un terminal, puis ouvrez `http://localhost:3000`.
 
+#### Choix du moteur : Open WebUI ou vLLM
+
+Sur Vast.ai, un **3ᵉ argument** de `deploy.sh` choisit le moteur servi (défaut : `openwebui`) :
+
+```bash
+./deploy.sh vastai up            # Open WebUI + Ollama (UI navigateur) — comme ci-dessus
+./deploy.sh vastai up vllm       # serveur vLLM : API OpenAI-compatible (pas d'UI)
+```
+
+En mode **vllm**, l'instance déploie l'image `vllm/vllm-openai` et expose une API **OpenAI-compatible** (`/v1/chat/completions`, `/v1/models`…) sur le port **8000** — ce n'est **pas** une interface navigateur. Le modèle servi est un id **HuggingFace** (`vllm_model`, défaut `Qwen/Qwen2.5-1.5B-Instruct`, téléchargé au démarrage) ; pour un modèle gated, fournissez un token via `export TF_VAR_hf_token=hf_...`.
+
+Passez le **même moteur** à `status`/`down` pour obtenir des sorties cohérentes :
+
+```bash
+./deploy.sh vastai up vllm
+./deploy.sh vastai status vllm    # affiche ssh_tunnel (…-L 8000:localhost:8000…) et curl_example
+# ouvrez le tunnel affiché, puis :
+curl http://localhost:8000/v1/models
+curl http://localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"Qwen/Qwen2.5-1.5B-Instruct","messages":[{"role":"user","content":"Bonjour"}]}'
+./deploy.sh vastai down vllm
+```
+
+Depuis un client OpenAI, utilisez `base_url = "http://localhost:8000/v1"` (clé API quelconque, non vérifiée par défaut).
+
 > **Format du nom de GPU** : `gpu_name` doit reprendre exactement le libellé de l'API Vast.ai, **avec des espaces** (`"RTX 4090"`, `"RTX 3090"`, `"H100 SXM"`…), et non des underscores (`RTX_4090`). Un underscore ne matche aucune offre : la recherche renvoie une liste vide et le déploiement échoue à la sélection de l'offre.
 
-> Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès à Open WebUI passe par le **tunnel SSH** (`ssh -L 3000:localhost:8080 …`). Cette stack ne dispose pas de volume détachable Vast.ai ; `down` détruit donc l'instance et ses données.
+> Le provider Vast.ai n'expose pas d'IP/port HTTP public : l'accès (Open WebUI sur 8080, ou vLLM sur 8000) passe par le **tunnel SSH**. Cette stack ne dispose pas de volume détachable Vast.ai ; `down` détruit donc l'instance et ses données.
 
 ### Cible OVHcloud
 
